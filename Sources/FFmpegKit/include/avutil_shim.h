@@ -9,7 +9,6 @@
 static const int64_t swift_AV_NOPTS_VALUE = AV_NOPTS_VALUE;
 
 /* Audio channel layout */
-static const uint64_t swift_AV_CH_LAYOUT_NATIVE            = AV_CH_LAYOUT_NATIVE;
 static const uint64_t swift_AV_CH_LAYOUT_MONO              = AV_CH_LAYOUT_MONO;
 static const uint64_t swift_AV_CH_LAYOUT_STEREO            = AV_CH_LAYOUT_STEREO;
 static const uint64_t swift_AV_CH_LAYOUT_2POINT1           = AV_CH_LAYOUT_2POINT1;

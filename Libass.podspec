@@ -1,24 +1,17 @@
+native = File.directory?(File.join(__dir__, 'Frameworks')) ? '' : 'build/ios-native/pods/FFmpegKit/'
+
 Pod::Spec.new do |s|
-    s.name             = 'Libass'
-    s.version          = '0.17.1'
-    s.summary          = 'Libass'
-
-    s.description      = <<-DESC
-    Libass
-    DESC
-
-    s.homepage         = 'https://github.com/kingslay/FFmpegKit'
-    s.authors = { 'kintan' => '554398854@qq.com' }
-    s.license          = 'MIT'
-    s.source           = { :git => 'https://github.com/kingslay/FFmpegKit.git', :tag => s.version.to_s }
-
-    s.ios.deployment_target = '13.0'
-    s.osx.deployment_target = '10.15'
-    # s.watchos.deployment_target = '2.0'
-    s.tvos.deployment_target = '13.0'
-    s.default_subspec = 'Libass'
-    s.static_framework = true
-    s.subspec 'Libass' do |openssl|
-        openssl.vendored_frameworks = 'Sources/libfreetype.xcframework','Sources/libfribidi.xcframework', 'Sources/libharfbuzz.xcframework', 'Sources/libass.xcframework'
-    end
+  s.name = 'Libass'
+  s.version = '0.17.1'
+  s.summary = 'Locally built libass and text shaping dependencies'
+  s.homepage = 'https://github.com/libass/libass'
+  s.authors = { 'libass contributors' => 'libass@libass.org' }
+  s.license = { :type => 'ISC', :file => "#{native}Licenses/libass/COPYING" }
+  s.source = { :git => 'https://github.com/libass/libass.git', :tag => '0.17.1' }
+  s.ios.deployment_target = '16.0'
+  s.static_framework = true
+  s.vendored_frameworks = "#{native}Frameworks/libfreetype.xcframework", "#{native}Frameworks/libfribidi.xcframework",
+                          "#{native}Frameworks/libharfbuzz.xcframework", "#{native}Frameworks/libass.xcframework"
+  s.frameworks = 'CoreText', 'CoreGraphics', 'CoreFoundation'
+  s.libraries = 'c++', 'z', 'iconv'
 end

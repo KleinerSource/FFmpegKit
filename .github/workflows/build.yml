@@ -8,6 +8,7 @@ on:
 
 jobs:
   buidJoB:
+    if: github.ref != 'refs/heads/senplayer-ffmpeg81' && github.head_ref != 'senplayer-ffmpeg81'
     name: buid
     runs-on: macos-14
     steps:

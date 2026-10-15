@@ -18,9 +18,9 @@
  * @return >=0 in case of success, a negative value corresponding to an AVERROR
  *         code in case of failure
  */
-int ff_isom_write_vpcc(AVFormatContext *s, AVIOContext *pb,
+int ff_isom_write_vpcc(void *logctx, AVIOContext *pb,
                        const uint8_t *data, int len,
-                       AVCodecParameters *par);
+                       const AVCodecParameters *par);
 //int ff_isom_write_avcc(AVIOContext *pb, const uint8_t *data, int len);
 //int ff_isom_write_hvcc(AVIOContext *pb, const uint8_t *data, int size, int ps_array_completeness);
 //int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size, int write_seq_header);

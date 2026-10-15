@@ -1,0 +1,118 @@
+import importlib.util
+import io
+from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
+import unittest
+from unittest.mock import patch
+
+
+spec = importlib.util.spec_from_file_location("ios_native_build", Path(__file__).with_name("build.py"))
+native = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(native)
+
+
+class SourceIntegrityTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="ios-native-中文-")
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+
+    def archive(self, name, content=b"source", link=None):
+        archive = self.root / "source.tar.gz"
+        with tarfile.open(archive, "w:gz") as output:
+            member = tarfile.TarInfo(name)
+            if link is not None:
+                member.type = tarfile.SYMTYPE
+                member.linkname = link
+                output.addfile(member)
+            else:
+                member.size = len(content)
+                output.addfile(member, io.BytesIO(content))
+        return archive
+
+    def test_extracts_valid_source_and_rejects_escape(self):
+        destination = self.root / "sources"
+        destination.mkdir()
+        native.extract(self.archive("lib/中文.c"), destination)
+        self.assertEqual((destination / "lib/中文.c").read_bytes(), b"source")
+        with self.assertRaises(RuntimeError):
+            native.extract(self.archive("../outside"), destination)
+        self.assertFalse((self.root / "outside").exists())
+        with self.assertRaises(RuntimeError):
+            native.extract(self.archive("link", link="../../outside"), destination)
+
+    def test_bad_download_hash_stops_before_extracting(self):
+        downloads = self.root / "downloads"
+        downloads.mkdir()
+        archive = self.archive("source/file.c")
+        (downloads / archive.name).write_bytes(archive.read_bytes())
+        lock = {"sources": {"library": {"url": "https://invalid.test/source.tar.gz", "sha256": "0" * 64}}}
+        with patch.object(native, "WORK", self.root), patch.object(native, "LOCK", lock):
+            with self.assertRaisesRegex(RuntimeError, "SHA-256"):
+                native.fetch("library")
+        self.assertFalse((self.root / "library").exists())
+
+    def test_exports_pinned_commit_and_ignores_dirty_worktree(self):
+        source = self.root / "components/library"
+        source.mkdir(parents=True)
+        subprocess.run(["git", "init", "--quiet", str(source)], check=True)
+        subprocess.run(["git", "-C", str(source), "config", "user.name", "Test"], check=True)
+        subprocess.run(["git", "-C", str(source), "config", "user.email", "test@example.invalid"], check=True)
+        (source / "value.c").write_text("committed\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(source), "add", "value.c"], check=True)
+        subprocess.run(["git", "-C", str(source), "commit", "--quiet", "-m", "fixture"], check=True)
+        commit = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
+        (source / "value.c").write_text("dirty\n", encoding="utf-8")
+        lock = {"sources": {"library": {"git": "https://invalid.test/library", "commit": commit}}}
+        output = self.root / "export"
+        with (patch.object(native, "COMPONENTS", self.root / "components"),
+              patch.object(native, "WORK", self.root), patch.object(native, "LOCK", lock)):
+            native.export_git("library", output)
+            self.assertEqual((output / "value.c").read_text(encoding="utf-8"), "committed\n")
+            lock["sources"]["library"]["commit"] = "0" * 40
+            original_run = native.run
+            def fail_fetch(args, **kwargs):
+                if "fetch" in args:
+                    raise subprocess.CalledProcessError(128, args)
+                return original_run(args, **kwargs)
+            with patch.object(native, "run", side_effect=fail_fetch):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    native.export_git("library", output)
+        self.assertEqual((source / "value.c").read_text(encoding="utf-8"), "dirty\n")
+
+    def test_slice_environment_separates_host_and_ios_compilers(self):
+        class Result:
+            def __init__(self, stdout):
+                self.stdout = stdout
+
+        def fake_run(args, **kwargs):
+            if "--show-sdk-path" in args:
+                if "macosx" in args:
+                    return Result("/path/to/MacOSX.sdk\n")
+                return Result("/path/to/iPhoneOS.sdk\n")
+            if "--find" in args and "clang" in args:
+                return Result("/usr/bin/clang\n")
+            raise AssertionError(args)
+
+        with (patch.object(native, "run", side_effect=fake_run),
+              patch.object(native.shutil, "which", return_value="/usr/bin/clang")):
+            env, _, sdkroot = native.slice_environment(
+                "iphoneos", "arm64", self.root / "prefix"
+            )
+        self.assertEqual(sdkroot, "/path/to/iPhoneOS.sdk")
+        self.assertEqual(env["CC"], "/usr/bin/clang")
+        self.assertEqual(
+            env["CC_FOR_BUILD"], "/usr/bin/clang -isysroot /path/to/MacOSX.sdk"
+        )
+        self.assertEqual(env["HOST_CC"], env["CC_FOR_BUILD"])
+        self.assertEqual(env["CPP_FOR_BUILD"], "")
+        self.assertEqual(env["CFLAGS_FOR_BUILD"], "")
+        self.assertEqual(env["SDKROOT"], "")
+        self.assertEqual(env["IPHONEOS_DEPLOYMENT_TARGET"], "")
+        self.assertIn("-target arm64-apple-ios", env["CFLAGS"])
+
+
+if __name__ == "__main__":
+    unittest.main()

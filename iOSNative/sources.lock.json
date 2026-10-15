@@ -1,0 +1,63 @@
+{
+  "schema": 2,
+  "ios_minimum": "16.0",
+  "ffmpeg_version": "n8.1",
+  "sources": {
+    "KSPlayer": {
+      "git": "https://github.com/KleinerSource/KSPlayer.git",
+      "commit": "52285f37be67050e90035a0aca2ccf988c29ef40",
+      "upstream_commit": "fb782b6f93bef9b68181a0d41e9dd22ef53d715b"
+    },
+    "FFmpeg": {
+      "git": "https://github.com/FFmpeg/FFmpeg.git",
+      "commit": "904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b",
+      "upstream_commit": "9047fa1b084f76b1b4d065af2d743df1b40dfb56"
+    },
+    "dav1d": {
+      "git": "https://github.com/videolan/dav1d.git",
+      "commit": "e9986de7f4264940af6fa1df1498fd2754077de4"
+    },
+    "srt": {
+      "git": "https://github.com/Haivision/srt.git",
+      "commit": "09f35c0f1743e23f514cb41444504a7faeacf89e"
+    },
+    "freetype": {
+      "url": "https://downloads.sourceforge.net/project/freetype/freetype2/2.13.2/freetype-2.13.2.tar.xz",
+      "sha256": "12991c4e55c506dd7f9b765933e62fd2be2e06d421505d7950a132e4f1bb484d"
+    },
+    "fribidi": {
+      "url": "https://github.com/fribidi/fribidi/releases/download/v1.0.12/fribidi-1.0.12.tar.xz",
+      "sha256": "0cd233f97fc8c67bb3ac27ce8440def5d3ffacf516765b91c2cc654498293495"
+    },
+    "harfbuzz": {
+      "url": "https://github.com/harfbuzz/harfbuzz/releases/download/5.3.1/harfbuzz-5.3.1.tar.xz",
+      "sha256": "4a6ce097b75a8121facc4ba83b5b083bfec657f45b003cd5a3424f2ae6b4434d"
+    },
+    "libass": {
+      "url": "https://github.com/libass/libass/releases/download/0.17.1/libass-0.17.1.tar.xz",
+      "sha256": "f0da0bbfba476c16ae3e1cfd862256d30915911f7abaa1b16ce62ee653192784"
+    },
+    "gmp": {
+      "url": "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz",
+      "sha256": "fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2"
+    },
+    "nettle": {
+      "url": "https://ftp.gnu.org/gnu/nettle/nettle-3.9.1.tar.gz",
+      "sha256": "ccfeff981b0ca71bbd6fbcb054f407c60ffb644389a5be80d6716d5b550c6ce3"
+    },
+    "gnutls": {
+      "url": "https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.3.tar.xz",
+      "sha256": "f74fc5954b27d4ec6dfbb11dea987888b5b124289a3703afcada0ee520f4173e"
+    }
+  },
+  "builder_upstream_commit": "b80cde8f476bbc374310e9a34e2cf17104705030",
+  "libav_versions": {
+    "libavcodec": "62.28.100",
+    "libavdevice": "62.3.100",
+    "libavfilter": "11.14.100",
+    "libavformat": "62.12.100",
+    "libavutil": "60.26.100",
+    "libswresample": "6.3.100",
+    "libswscale": "9.5.100"
+  }
+}

@@ -6,3 +6,7 @@ xcuserdata
 Script
 .Script
 Demo/Pods
+
+# Reproducible iOS source build output
+/build/
+__pycache__/
