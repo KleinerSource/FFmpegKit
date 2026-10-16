@@ -201,9 +201,10 @@ def slice_environment(sdk, arch, prefix):
         raise RuntimeError("无法定位构建机 macOS SDK 或 clang")
     host_cc = shlex.join([host_clang, "-isysroot", host_sdkroot])
     flags = ["-target", target, "-isysroot", sdkroot, "-O2", "-fPIC", "-I" + str(prefix / "include")]
+    cxx_flags = flags + ["-stdlib=libc++"]
     env = os.environ.copy()
     env.update(CC=clang, CXX=clang + "++", OBJC=clang, AR="/usr/bin/ar", RANLIB="/usr/bin/ranlib",
-               CFLAGS=shlex.join(flags), CXXFLAGS=shlex.join(flags), CPPFLAGS=shlex.join(flags),
+               CFLAGS=shlex.join(flags), CXXFLAGS=shlex.join(cxx_flags), CPPFLAGS=shlex.join(flags),
                LDFLAGS=shlex.join(flags + ["-L" + str(prefix / "lib")]),
                # Autoconf 依赖（尤其 GMP）会在交叉编译时生成并运行构建机辅助程序。
                # 这些程序必须使用 macOS 编译器，不能继承 iOS 的 target/sysroot。
@@ -218,6 +219,7 @@ def slice_environment(sdk, arch, prefix):
 def meson_cross(path, env, flags, arch):
     quote = lambda value: "'" + str(value).replace("\\", "\\\\").replace("'", "\\'") + "'"
     args = ", ".join(map(quote, flags))
+    cxx_args = ", ".join(map(quote, flags + ["-stdlib=libc++"]))
     text = f"""[binaries]
 c = {quote(env['CC'])}
 cpp = {quote(env['CXX'])}
@@ -235,11 +237,11 @@ endian = 'little'
 needs_exe_wrapper = true
 [built-in options]
 c_args = [{args}]
-cpp_args = [{args}]
+cpp_args = [{cxx_args}]
 objc_args = [{args}]
-objcpp_args = [{args}]
+objcpp_args = [{cxx_args}]
 c_link_args = [{args}, '-L{path.parent / 'prefix/lib'}']
-cpp_link_args = [{args}, '-L{path.parent / 'prefix/lib'}']
+cpp_link_args = [{cxx_args}, '-L{path.parent / 'prefix/lib'}']
 """
     path.write_text(text, encoding="utf-8")
 

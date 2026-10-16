@@ -112,6 +112,7 @@ class SourceIntegrityTests(unittest.TestCase):
         self.assertEqual(env["SDKROOT"], "")
         self.assertEqual(env["IPHONEOS_DEPLOYMENT_TARGET"], "")
         self.assertIn("-target arm64-apple-ios", env["CFLAGS"])
+        self.assertIn("-stdlib=libc++", env["CXXFLAGS"])
 
 
 if __name__ == "__main__":
