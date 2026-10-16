@@ -145,12 +145,9 @@ def static_framework(name, library, module_directory, platform, headers=None):
             shutil.copyfile(header, header_root / header.name)
         modules = framework / "Modules"
         modules.mkdir()
-        umbrella = modules / f"{name}.h"
+        umbrella = header_root / f"{name}.h"
         umbrella.write_text("".join(f'#import "{header.name}"\n' for header in headers), encoding="utf-8")
-        if name == "FFmpegKit":
-            modulemap = f'framework module {name} {{\n  umbrella header "{name}.h"\n  export *\n}}\n'
-        else:
-            modulemap = f'framework module {name} {{\n  umbrella header "{name}.h"\n  export *\n}}\n'
+        modulemap = f'framework module {name} {{\n  umbrella header "{name}.h"\n  export *\n}}\n'
         (modules / "module.modulemap").write_text(modulemap, encoding="utf-8")
     else:
         raise RuntimeError(f"{name} framework module 信息缺失")

@@ -42,6 +42,24 @@ class StaticFrameworkTests(unittest.TestCase):
         self.assertIn('framework module DisplayCriteria', modulemap)
         self.assertIn('umbrella header "DisplayCriteria.h"', modulemap)
         self.assertTrue((framework / "Headers/AVDisplayCriteriaKS.h").is_file())
+        self.assertTrue((framework / "Headers/DisplayCriteria.h").is_file())
+
+    def test_ffmpegkit_umbrella_header_is_in_framework_headers(self):
+        library = self.root / "libFFmpegKit.a"
+        library.write_bytes(b"archive")
+        headers = []
+        for name in ("avcodec_shim.h", "avformat_shim.h"):
+            header = self.root / name
+            header.write_text("", encoding="utf-8")
+            headers.append(header)
+        with patch.object(distribute.native, "WORK", self.root):
+            framework = distribute.static_framework("FFmpegKit", library, None,
+                                                    "iphoneos", headers)
+        modulemap = (framework / "Modules/module.modulemap").read_text(encoding="utf-8")
+        self.assertIn('umbrella header "FFmpegKit.h"', modulemap)
+        self.assertTrue((framework / "Headers/FFmpegKit.h").is_file())
+        self.assertIn('#import "avcodec_shim.h"',
+                      (framework / "Headers/FFmpegKit.h").read_text(encoding="utf-8"))
 
     def test_archives_xcode_target_object_when_library_is_not_emitted(self):
         products = self.root / "Products"
