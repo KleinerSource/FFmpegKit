@@ -2,7 +2,7 @@
 
 此入口构建 FFmpeg n8.1、KSPlayer 与配套依赖，直接使用组件源码提交。输出包含真机 arm64、模拟器 arm64/x86_64、保持原名的 Swift 模块、KSPlayer Metal 资源和依赖许可证。最低 iOS 16。
 
-三个组件统一使用 `KleinerSource` 命名空间，当前在本地 `senplayer-ffmpeg81` 分支交付，尚未推送。锁清单中的增强提交位于 `KleinerSource/FFmpeg` 镜像仓库（上游仍记录为官方 FFmpeg）；请携带三个本地仓库到 macOS，或先把增强提交发布到自有组件仓库，再配置 CI 的仓库输入。`mobile_app` 和 `omm_app` 保持用户回退状态，尚未接入这些新制品。
+三个组件统一使用 `KleinerSource` 命名空间，`main` 与 `senplayer-ffmpeg81` 分支均已推送。锁清单中的增强提交位于 `KleinerSource/FFmpeg` 镜像仓库（上游仍记录为官方 FFmpeg）。`mobile_app` 的 Pod/协议/诊断适配和 `omm_app` 的原生构建工作流已经接入这些固定制品。
 
 ## 上传到 GitHub
 
@@ -42,7 +42,7 @@ pod 'FFmpegKit', :path => "#{native}/FFmpegKit"
 pod 'Libass', :path => "#{native}/FFmpegKit"
 ```
 
-应用中旧的 FFmpegKit 6.1.4 或远端 KSPlayer 声明应由上述声明替换。应用尚未进行这一步；本轮按用户要求只交付组件源码。已有 `media_kit` 的应用需要额外检查最终链接、画中画、AirPlay 和播放器路由。
+应用中旧的 FFmpegKit 6.1.4 或远端 KSPlayer 声明应由上述声明替换。`mobile_app` 已保留固定 commit 作为本地回退，`omm_app` 发布构建会优先使用生成的本地 Pods。已有 `media_kit` 的应用需要额外检查最终链接、画中画、AirPlay 和播放器路由。
 
 Swift Package 使用组件根目录的 `Package.swift`；KSPlayer 直接依赖同级 FFmpegKit，后者只引用本次构建的 XCFramework。Swift Package 固定采用默认输出目录，使用自定义输出时通过 CocoaPods 接入。
 

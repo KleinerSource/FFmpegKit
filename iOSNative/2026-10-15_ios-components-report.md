@@ -1,6 +1,6 @@
 # iOS 播放组件源码升级交付记录
 
-本次将增强直接落在独立 KSPlayer、FFmpeg、FFmpegKit 源码仓库，替代应用内构建补丁方案。三个仓库都使用 `KleinerSource` 命名空间和 `senplayer-ffmpeg81` 本地分支，尚未推送。`mobile_app` 与 `omm_app` 保持回退状态，因此当前应用仍使用旧组件；这份交付不代表应用升级已生效。Apple 编译、GPU、协议服务器和真机验收未执行。
+本次将增强直接落在独立 KSPlayer、FFmpeg、FFmpegKit 源码仓库，替代应用内构建补丁方案。三个仓库都使用 `KleinerSource` 命名空间，`main` 与 `senplayer-ffmpeg81` 已推送。`mobile_app` 与 `omm_app` 已接入固定组件：前者负责播放器路由与 Pod 配置，后者负责原生源码构建和发布缓存。Apple 编译、GPU、协议服务器和真机验收未执行。
 
 ## 源码基线与提交
 
@@ -42,10 +42,10 @@ KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`
 
 网络错误与硬解终止错误使用独立预算。连接 5 秒、读取 10 秒，网络最多 1/2/4 秒三次重试；恢复不重置预算。暂停期间不自动转为播放，直播不保存或恢复文件位置。停止、换片和释放取消待重试任务，来源实例和会话代次过滤旧回调。文本与图形字幕延迟共用轨道 delay；图形覆盖层不进入系统画中画。切换到 Metal 时停止系统画中画并通知能力变化。
 
-## 尚未完成的应用接入与验收
+## 尚未完成的外部验收
 
-应用 Podfile、原生配置生成器、Pigeon 字幕延迟桥接、Dart 动态能力/调试信息及 `omm_app` 发布工作流仍处于用户回退后的版本；本轮没有恢复这些应用改动。组件已提供 `runtimeInfo`、`isLive`、`seekable`、`subtitleDelay` 和内嵌字幕选择接口，后续应用通过本地制品消费这些 API。
+应用 Podfile、原生配置生成器、Dart 动态能力/调试信息及 `omm_app` 发布工作流已经恢复并提交。组件提供 `runtimeInfo`、`isLive`、`seekable`、`subtitleDelay` 和内嵌字幕选择接口，应用通过本地制品消费这些 API。尚未完成的是 Apple 编译、真实协议服务、GPU/HDR 输出和 iOS 真机回归。
 
-macOS 需执行新工作流或 [构建说明](README.md) 中的命令，验证三架构 XCFramework、CocoaPods 编译、Swift Package 模拟器 XCTest 和真机架构 Release 编译。包含 media_kit 的最终应用仍需完整链接，检查 FFmpeg/libmpv 共存、画中画、AirPlay 和播放路由。新工作流仅手动触发，增强提交尚未推送，因此远端 CI 尚未运行。
+macOS 需执行新工作流或 [构建说明](README.md) 中的命令，验证三架构 XCFramework、CocoaPods 编译、Swift Package 模拟器 XCTest 和真机架构 Release 编译。包含 media_kit 的最终应用仍需完整链接，检查 FFmpeg/libmpv 共存、画中画、AirPlay 和播放路由。`omm_app` 工作流仍需手动触发，当前没有本机 Apple SDK 验证结果。
 
 设备验收还包括原故障片约 5:25、正常 H.264/HEVC/AV1、硬软解、seek/倍速/暂停、有限恢复、认证/超时/中断/取消、HDR10/HLG、Dolby 5/8/7 基础层、SDR、ASS/PGS。当前没有以上设备验收结果；不能由历史应用方案的 Dart 测试数量代替。
