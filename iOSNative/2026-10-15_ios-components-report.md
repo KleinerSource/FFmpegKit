@@ -7,10 +7,10 @@
 | 组件 | 上游基线 | 当前源码提交 |
 | --- | --- | --- |
 | FFmpeg | 官方 n8.1 `9047fa1b084f76b1b4d065af2d743df1b40dfb56` | `904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b` |
-| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `52285f37be67050e90035a0aca2ccf988c29ef40` |
-| FFmpegKit | 构建器快照 `b80cde8f476bbc374310e9a34e2cf17104705030` | 当前分支，具体提交执行 `git rev-parse HEAD` 查看 |
+| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `2704929a40ee1bf1f6577799d038a8a09620bee9` |
+| FFmpegKit | 构建器快照 `b80cde8f476bbc374310e9a34e2cf17104705030` | 当前分支 HEAD `2f67159`（上传元数据同步后会更新） |
 
-KSPlayer 分为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`、协议/恢复 `52285f3` 三个可回退提交。协议恢复提交依赖显示提交提供的输出能力和字幕清理接口，因此显示代码先提交。FFmpeg 的 Metal 分配改动和 FFmpegKit 的构建入口分别保留在各自仓库。
+KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`、协议/恢复 `52285f3`；当前分支 HEAD `2704929` 还包含 KleinerSource 集成元数据。协议恢复提交依赖显示提交提供的输出能力和字幕清理接口，因此显示代码先提交。FFmpeg 的 Metal 分配改动和 FFmpegKit 的构建入口分别保留在各自仓库。
 
 锁清单固定增强提交与公开依赖对象；构建器从这些 Git 对象导出源码，不采用 KSPlayer/FFmpeg 未提交修改。FFmpegKit 的 helper、podspec、Swift Package 和构建器直接维护在自身仓库，缓存键包含其文件内容及工具链。未发布的增强提交需要从同级仓库读取；仅克隆官方 FFmpeg 无法取得自有增强提交。
 
