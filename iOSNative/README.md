@@ -42,7 +42,13 @@ pod 'FFmpegKit', :path => "#{native}/FFmpegKit"
 pod 'Libass', :path => "#{native}/FFmpegKit"
 ```
 
-应用中旧的 FFmpegKit 6.1.4 或远端 KSPlayer 声明应由上述声明替换。`mobile_app` 已保留固定 commit 作为本地回退，`omm_app` 发布构建会优先使用生成的本地 Pods。已有 `media_kit` 的应用需要额外检查最终链接、画中画、AirPlay 和播放器路由。
+应用中旧的 FFmpegKit 6.1.4 或远端 KSPlayer 声明应由上述声明替换。`mobile_app` 与 `omm_app` 都按 `main` 最新组件源码解析版本，不在应用 Podfile 固定组件提交；`omm_app` 优先使用来源指纹匹配的 Release Pods。已有 `media_kit` 的应用需要额外检查最终链接、画中画、AirPlay 和播放器路由。
+
+## 跨仓库复用 Release
+
+`FFmpegKit` 的 iOS Release 会把 FFmpegKit、Libass、KSPlayer、DisplayCriteria 的静态 XCFramework 和 KSPlayer Metal 源资源一起打包。Release 标签由 FFmpegKit、KSPlayer 提交及 Xcode/SDK/构建器指纹计算；清单记录精确源码版本、libav ABI 与文件校验值。`omm_app` 每次解析两个仓库 `main` 的最新提交，命中完全匹配的 Release 就下载并校验，不会在应用工作流内编译这些组件；没有匹配版本时，它才会在 `FFmpegKit` 仓库启动一次 Release 构建。
+
+Actions cache 只留在制品生产工作流里，作为失败重跑和“只更新 KSPlayer”时的内部加速手段；应用跨仓库获取组件使用不可变 Release，不依赖 cache 的分支范围或保留周期。
 
 Swift Package 使用组件根目录的 `Package.swift`；KSPlayer 直接依赖同级 FFmpegKit，后者只引用本次构建的 XCFramework。Swift Package 固定采用默认输出目录，使用自定义输出时通过 CocoaPods 接入。
 
@@ -57,7 +63,7 @@ read -r simulator_id
 xcodebuild -scheme KSPlayer -destination "platform=iOS Simulator,id=$simulator_id" test CODE_SIGNING_ALLOWED=NO
 ```
 
-FFmpegKit 的 `iOS native source build` 工作流提供相同步骤、二进制缓存、CocoaPods 编译检查、模拟器 XCTest 和真机架构 Release 编译，仅手动触发。私有组件仓库需要配置可读取它们的 `COMPONENTS_TOKEN`。
+FFmpegKit 的 `iOS native component Release` 工作流在构建器相关文件更新到 `main` 时自动检查并发布制品，也支持手动触发；`omm_app` 找不到当前指纹的 Release 时会按该指纹触发构建。工作流保留 CocoaPods 编译检查、模拟器 XCTest 和真机架构构建。私有组件仓库需要配置可读取它们的 `COMPONENTS_TOKEN`。
 
 Windows 已执行构建器和色彩参考测试；不能执行 Apple SDK 编译、XCTest、GPU 或 HDR 真机验收。色彩测试可直接针对组件工作树运行：
 

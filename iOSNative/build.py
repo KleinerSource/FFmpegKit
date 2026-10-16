@@ -224,6 +224,23 @@ def cache_key():
     return digest.hexdigest()
 
 
+def release_key():
+    """发布制品身份包含组件提交、构建器提交和 Apple 工具链。"""
+    ksplayer = git_revision(COMPONENTS / "KSPlayer")
+    ffmpegkit = git_revision(ROOT)
+    if not ksplayer or not ffmpegkit:
+        raise RuntimeError("Release 指纹需要已检出的 FFmpegKit 和 KSPlayer Git 提交")
+    identity = {
+        "schema": 1,
+        "ffmpegkit_revision": ffmpegkit,
+        "ksplayer_revision": ksplayer,
+        "native_cache_key": cache_key(),
+    }
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    identity["tag"] = "ios-native-" + hashlib.sha256(encoded).hexdigest()
+    return identity
+
+
 def slice_environment(sdk, arch, prefix):
     sdkroot = run(["xcrun", "--sdk", sdk, "--show-sdk-path"], capture=True).stdout.strip()
     target = f"{arch}-apple-ios{LOCK['ios_minimum']}" + ("-simulator" if sdk == "iphonesimulator" else "")
@@ -431,7 +448,7 @@ def build(jobs):
 def main():
     global WORK, COMPONENTS
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare", "build", "cache-key", "plan"))
+    parser.add_argument("command", choices=("prepare", "build", "cache-key", "release-key", "plan"))
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     parser.add_argument("--components-dir", type=Path, default=COMPONENTS,
                         help="独立 KSPlayer/FFmpeg 源码仓库的父目录")
@@ -445,6 +462,8 @@ def main():
         build(args.jobs)
     elif args.command == "cache-key":
         print(cache_key())
+    elif args.command == "release-key":
+        print(json.dumps(release_key(), sort_keys=True))
     else:
         print(json.dumps({"sources": LOCK, "slices": SLICES, "build_order": ORDER,
                           "modules": list(LIBRARIES), "output": str(WORK / "pods")}, indent=2))

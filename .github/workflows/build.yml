@@ -1,12 +1,12 @@
 name: iOS native source build
 
 on:
-  push:
-    branches:
-      - '*'
   pull_request:
     branches:
       - '*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
