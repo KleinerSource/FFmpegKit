@@ -1,4 +1,10 @@
 native = File.directory?(File.join(__dir__, 'Frameworks')) ? '' : 'build/ios-native/pods/FFmpegKit/'
+frameworks = File.expand_path("#{native}Frameworks", __dir__)
+force_load = lambda do |slice|
+  %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
+    "\"-Wl,-force_load,#{frameworks}/#{name}.xcframework/#{slice}/#{name}.framework/#{name}\""
+  }.join(' ')
+end
 
 Pod::Spec.new do |s|
   s.name = 'FFmpegKit'
@@ -12,12 +18,12 @@ Pod::Spec.new do |s|
   s.source = { :git => 'https://github.com/KleinerSource/FFmpegKit.git', :tag => 'n8.1' }
   s.ios.deployment_target = '16.0'
   s.static_framework = true
-  # Pull FFmpeg 8.1 into the executable before media_kit's FFmpeg 6 dylibs
-  # can satisfy the same C symbols with an incompatible structure layout.
+  # Use existing slices: Xcode validates force-load inputs before CocoaPods
+  # copies XCFrameworks into the build intermediates directory.
   s.user_target_xcconfig = {
-    'OTHER_LDFLAGS' => '$(inherited) ' + %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
-      "\"-Wl,-force_load,$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/#{name}.framework/#{name}\""
-    }.join(' ')
+    'OTHER_LDFLAGS' => '$(inherited) $(FFMPEGKIT_FORCE_LOAD_FLAGS)',
+    'FFMPEGKIT_FORCE_LOAD_FLAGS[sdk=iphoneos*]' => force_load.call('ios-arm64'),
+    'FFMPEGKIT_FORCE_LOAD_FLAGS[sdk=iphonesimulator*]' => force_load.call('ios-arm64_x86_64-simulator')
   }
   s.source_files = 'Sources/FFmpegKit/**/*.{h,c}'
   s.public_header_files = 'Sources/FFmpegKit/include/*.h'

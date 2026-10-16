@@ -248,7 +248,14 @@ end
   s.frameworks = 'AVFoundation'
 end
 ''', encoding="utf-8")
-    (ffmpeg / "FFmpegKit.podspec").write_text('''Pod::Spec.new do |s|
+    (ffmpeg / "FFmpegKit.podspec").write_text('''frameworks = File.expand_path('Frameworks', __dir__)
+force_load = lambda do |slice|
+  %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
+    '"-Wl,-force_load,' + frameworks + '/' + name + '.xcframework/' + slice + '/' + name + '.framework/' + name + '"'
+  }.join(' ')
+end
+
+Pod::Spec.new do |s|
   s.name = 'FFmpegKit'
   s.version = '8.1.0'
   s.summary = 'Prebuilt FFmpeg 8.1 and compatibility helpers'
@@ -262,11 +269,11 @@ end
     'Frameworks/Libsw*.xcframework', 'Frameworks/libdav1d.xcframework', 'Frameworks/libsrt.xcframework',
     'Frameworks/gmp.xcframework', 'Frameworks/nettle.xcframework', 'Frameworks/hogweed.xcframework',
     'Frameworks/gnutls.xcframework'
-  # Keep FFmpeg 8.1 definitions in the executable when media_kit is also linked.
+  # Reference installed slices rather than files copied later during the build.
   s.user_target_xcconfig = {
-    'OTHER_LDFLAGS' => '$(inherited) ' + %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
-      '"-Wl,-force_load,$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/' + name + '.framework/' + name + '"'
-    }.join(' ')
+    'OTHER_LDFLAGS' => '$(inherited) $(FFMPEGKIT_FORCE_LOAD_FLAGS)',
+    'FFMPEGKIT_FORCE_LOAD_FLAGS[sdk=iphoneos*]' => force_load.call('ios-arm64'),
+    'FFMPEGKIT_FORCE_LOAD_FLAGS[sdk=iphonesimulator*]' => force_load.call('ios-arm64_x86_64-simulator')
   }
   s.resource_bundles = { 'FFmpegKit_FFmpegKit' => ['Licenses', 'native-versions.json'] }
   s.frameworks = 'AudioToolbox', 'AVFoundation', 'CoreMedia', 'CoreVideo', 'VideoToolbox', 'Security'
