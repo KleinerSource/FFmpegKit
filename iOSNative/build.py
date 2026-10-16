@@ -171,13 +171,10 @@ def prepare():
 
 def cache_key():
     digest = hashlib.sha256()
-    # KSPlayer 每次 prepare 都重新导出；其 Swift 源码和测试不改变 C 库制品。
+    # 播放器、helper、Podspec 和许可证每次 prepare 都重新导出，不改变原生库制品。
     native_lock = {**LOCK, "sources": {name: spec for name, spec in LOCK["sources"].items() if name != "KSPlayer"}}
     digest.update(json.dumps(native_lock, sort_keys=True).encode("utf-8"))
-    for path in sorted([HERE / "build.py", *(ROOT / "Sources/FFmpegKit").rglob("*"), ROOT / "LICENSE", ROOT / "FFmpegKit.podspec", ROOT / "Libass.podspec", ROOT / "Package.swift"]):
-        if path.is_file() and "__pycache__" not in path.parts:
-            digest.update(path.relative_to(ROOT).as_posix().encode())
-            digest.update(path.read_bytes())
+    digest.update((HERE / "build.py").read_bytes())
     digest.update(platform.machine().encode())
     if platform.system() == "Darwin":
         for args in (("xcodebuild", "-version"), ("xcrun", "--sdk", "iphoneos", "--show-sdk-version"),

@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
   s.source_files = 'Sources/FFmpegKit/**/*.{h,c}'
   s.public_header_files = 'Sources/FFmpegKit/include/*.h'
-  s.resource_bundles = { 'FFmpegKit_FFmpegKit' => ["#{native}Licenses/**/*", "#{native}native-versions.json"] }
+  s.resource_bundles = { 'FFmpegKit_FFmpegKit' => ["#{native}Licenses", "#{native}native-versions.json"] }
   s.vendored_frameworks = "#{native}Frameworks/Libav*.xcframework", "#{native}Frameworks/Libsw*.xcframework",
                           "#{native}Frameworks/libdav1d.xcframework", "#{native}Frameworks/libsrt.xcframework",
                           "#{native}Frameworks/gmp.xcframework", "#{native}Frameworks/nettle.xcframework",
