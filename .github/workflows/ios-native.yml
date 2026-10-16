@@ -35,6 +35,11 @@ on:
         description: '调用方计算的预期制品指纹标签'
         required: false
         type: string
+      publish_release:
+        description: '构建成功后是否发布组件 Release'
+        required: false
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       ffmpeg_repository:
@@ -198,7 +203,7 @@ jobs:
           path: FFmpegKit/build/ios-native/KSPlayerValidation
           key: ios-player-validation-${{ runner.os }}-${{ steps.cache-key.outputs.key }}-${{ steps.revisions.outputs.FFmpeg }}-${{ steps.source-revisions.outputs.ksplayer }}-${{ hashFiles('FFmpegKit/iOSNative/build.py', 'FFmpegKit/iOSNative/distribute.py', 'FFmpegKit/iOSNative/sources.lock.json', 'FFmpegKit/FFmpegKit.podspec', 'FFmpegKit/Libass.podspec', 'FFmpegKit/Sources/FFmpegKit/**', 'FFmpegKit/LICENSE') }}
       - name: Publish immutable component Release
-        if: steps.release-check.outputs.exists != 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || inputs.publish_release == true)
+        if: steps.release-check.outputs.exists != 'true' && (github.event_name == 'push' || inputs.publish_release == true)
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release-check.outputs.tag }}
