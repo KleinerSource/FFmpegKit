@@ -7,7 +7,7 @@
 | 组件 | 上游基线 | 当前源码提交 |
 | --- | --- | --- |
 | FFmpeg | 官方 n8.1 `9047fa1b084f76b1b4d065af2d743df1b40dfb56` | `904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b` |
-| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `a4d9d8575c4e38f1cc218338c19745030c932022` |
+| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `77fd5e3117d8973e9a285e862c5498ed67f78a49` |
 | FFmpegKit | 构建器快照 `b80cde8f476bbc374310e9a34e2cf17104705030` | `KleinerSource/FFmpegKit` 当前分支 HEAD（以 `git rev-parse HEAD` 为准） |
 
 KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`、协议/恢复 `52285f3`；提交 `88f1a64` 还统一了 CocoaPods 模块，与 SwiftPM 的单模块布局一致。协议恢复提交依赖显示提交提供的输出能力和字幕清理接口，因此显示代码先提交。FFmpeg 的 Metal 分配改动和 FFmpegKit 的构建入口分别保留在各自仓库。
@@ -70,3 +70,6 @@ macOS 需执行新工作流或 [构建说明](README.md) 中的命令，验证�
 
 
 [Actions 38859650724](https://github.com/KleinerSource/FFmpegKit/actions/runs/38859650724) 确认 CocoaPods/Swift 编译通过；XCTest 揭示播放器层测试传入 isAutoPlay: false 后没有调用 prepareToPlay()，导致播放器保持 initialized，ready expectation 超时并引发后续状态断言失败。KSPlayer 4d9d85 显式准备播放器、检查 seek 成功并将等待上限收紧到有限值；FFmpegKit 锁清单已更新，等待下一轮 Actions 验证。
+
+
+[Actions 38860829783](https://github.com/KleinerSource/FFmpegKit/actions/runs/38860829783) 的 CocoaPods 编译通过，模拟器 38 项测试中 37 项通过；唯一失败是测试在暂停后开始 seek 时立即期待 uffering。此时状态按设计仍为 paused，直到 seek completion 执行 utoPlay。KSPlayer 77fd5e3 修正即时状态断言，并在回调完成后验证播放器确实恢复播放；FFmpegKit 已锁定此提交，等待最终 Actions。
