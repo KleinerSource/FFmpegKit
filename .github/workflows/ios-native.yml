@@ -75,7 +75,8 @@ jobs:
       - name: Compute source and toolchain cache key
         id: cache-key
         run: echo "key=$(python3 iOSNative/build.py cache-key)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: native-cache
         with:
           path: |
             FFmpegKit/build/ios-native/pods/FFmpegKit/Frameworks
@@ -85,11 +86,19 @@ jobs:
         run: python3 iOSNative/build.py prepare
       - name: Build device and simulator libraries
         run: python3 iOSNative/build.py build --jobs 3
+      - name: Save compiled libraries before player validation
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            FFmpegKit/build/ios-native/pods/FFmpegKit/Frameworks
+            FFmpegKit/build/ios-native/build-complete.json
+          key: ios-native-${{ steps.cache-key.outputs.key }}
       - name: Verify actual color shader functions
         run: python3 -m unittest discover -s iOSNative/tests -p test_color_reference.py -v
       - name: Validate CocoaPods compilation
         run: |
-          pod lib lint build/ios-native/pods/KSPlayer/KSPlayer.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs="build/ios-native/pods/FFmpegKit/FFmpegKit.podspec,build/ios-native/pods/FFmpegKit/Libass.podspec,build/ios-native/pods/KSPlayer/DisplayCriteria.podspec"
+          pod lib lint build/ios-native/pods/KSPlayer/KSPlayer.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs='build/ios-native/pods/*/*.podspec'
       - name: Run simulator XCTest
         working-directory: KSPlayer
         run: |
