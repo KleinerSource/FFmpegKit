@@ -7,7 +7,7 @@
 | 组件 | 上游基线 | 当前源码提交 |
 | --- | --- | --- |
 | FFmpeg | 官方 n8.1 `9047fa1b084f76b1b4d065af2d743df1b40dfb56` | `904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b` |
-| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `99094fa6612de116ecff3c0c409090f99e2db1a5` |
+| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `575f53faa68eb39115ef51f34de8b6bb00c88c40` |
 | FFmpegKit | 构建器快照 `b80cde8f476bbc374310e9a34e2cf17104705030` | `KleinerSource/FFmpegKit` 当前分支 HEAD（以 `git rev-parse HEAD` 为准） |
 
 KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`、协议/恢复 `52285f3`；提交 `88f1a64` 还统一了 CocoaPods 模块，与 SwiftPM 的单模块布局一致。协议恢复提交依赖显示提交提供的输出能力和字幕清理接口，因此显示代码先提交。FFmpeg 的 Metal 分配改动和 FFmpegKit 的构建入口分别保留在各自仓库。
@@ -54,7 +54,9 @@ KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`
 
 [Actions 38847265777](https://github.com/KleinerSource/FFmpegKit/actions/runs/38847265777) 确认三架构 FFmpeg/依赖编译、XCFramework 打包、色彩参考检查及 Pods 解析成功；Swift 编译随后失败。锁定的 KSPlayer `5730815` 把互相引用的 Swift 文件拆到多个 CocoaPods 子规格，造成跨规格类型不可见；FFmpeg umbrella module 也暴露了 iOS 不支持的 AMF/CUDA 头文件。KSPlayer `88f1a648` 已改为单一 CocoaPods 模块；FFmpegKit 更新 KSPlayer 锁定提交，并在 module map 中排除这些平台专用头文件。缓存键现包括 framework/module map 生成规则，确保不复用带旧 module map 的 XCFramework。
 
-[Actions 38851410085](https://github.com/KleinerSource/FFmpegKit/actions/runs/38851410085) 再次确认三架构原生库、XCFramework 和 Pods 解析通过；KSPlayer 编译暴露 FFmpegKit 8.1 的 Swift 类型差异。`99094fa` 修正 AVMediaType 歧义、SwsContext/缩放标志类型、HDR 数值类型和 MainActor 回调，并已锁入构建清单。该修订的 macOS 类型检查仍待 Actions 验证。
+[Actions 38851410085](https://github.com/KleinerSource/FFmpegKit/actions/runs/38851410085) 再次确认三架构原生库、XCFramework 和 Pods 解析通过；KSPlayer 编译暴露 FFmpegKit 8.1 的 Swift 类型差异。`99094fa` 修正 AVMediaType 歧义、SwsContext/缩放标志类型、HDR 数值类型和 MainActor 回调。
+
+[Actions 38854201762](https://github.com/KleinerSource/FFmpegKit/actions/runs/38854201762) 命中 C 库缓存后仍能复现：错误缩减为 Swift closure 显式捕获和 `SwsFlags.rawValue` 的有符号转换；`575f53f` 已修复并锁入构建清单。该版本的 CocoaPods、XCTest 和设备 Release 验证待 Actions 执行。
 
 macOS 需执行新工作流或 [构建说明](README.md) 中的命令，验证三架构 XCFramework、CocoaPods 编译、Swift Package 模拟器 XCTest 和真机架构 Release 编译。包含 media_kit 的最终应用仍需完整链接，检查 FFmpeg/libmpv 共存、画中画、AirPlay 和播放路由。`omm_app` 工作流仍需手动触发，当前没有本机 Apple SDK 验证结果。
 
