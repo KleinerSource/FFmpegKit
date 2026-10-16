@@ -13,6 +13,18 @@ on:
         required: true
         default: KleinerSource/KSPlayer
         type: string
+  workflow_call:
+    inputs:
+      ffmpeg_repository:
+        description: '包含锁定增强提交的 FFmpeg 仓库，格式 owner/repo'
+        required: false
+        default: KleinerSource/FFmpeg
+        type: string
+      ksplayer_repository:
+        description: '包含锁定增强提交的 KSPlayer 仓库，格式 owner/repo'
+        required: false
+        default: KleinerSource/KSPlayer
+        type: string
 
 permissions:
   contents: read

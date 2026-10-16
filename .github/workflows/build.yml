@@ -1,3 +1,5 @@
+name: iOS native source build
+
 on:
   push:
     branches:
@@ -7,27 +9,6 @@ on:
       - '*'
 
 jobs:
-  buidJoB:
-    if: github.ref != 'refs/heads/senplayer-ffmpeg81' && github.head_ref != 'senplayer-ffmpeg81'
-    name: buid
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@main
-        with:
-          submodules: 'true'
-      - name: Set up Xcode
-        run: |
-          sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
-          xcode-select -p
-          xcodebuild -version
-      - name: Build
-        run: |
-          cd Demo
-          pod install
-          swift package BuildFFmpeg  -h
-          swift run ffmpeg -h
-          xcodebuild -workspace Demo.xcworkspace -scheme macOS
-          xcodebuild -workspace Demo.xcworkspace -scheme iOS -sdk iphonesimulator
-          # xcodebuild -workspace Demo.xcworkspace -scheme visonOS -sdk XRSimulator
-          # xcodebuild -workspace Demo.xcworkspace -scheme tvOS -sdk appletvsimulator
-          
+  build:
+    uses: ./.github/workflows/ios-native.yml
+    secrets: inherit
