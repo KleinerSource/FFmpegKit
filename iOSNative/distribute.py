@@ -72,7 +72,7 @@ def package_sources():
         native_pkg: f'''// swift-tools-version:5.9
 import PackageDescription
 let package = Package(
-  name: "Native",
+  name: "FFmpegKit",
   platforms: [.iOS(.v16)],
   products: [.library(name: "FFmpegKit", type: .static, targets: ["FFmpegKit"])],
   targets: [

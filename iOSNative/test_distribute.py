@@ -69,6 +69,7 @@ class StaticFrameworkTests(unittest.TestCase):
         native_manifest = (package_root / "packages/Native/Package.swift").read_text(encoding="utf-8")
         display_manifest = (package_root / "packages/DisplayCriteria/Package.swift").read_text(encoding="utf-8")
         player_manifest = (package_root / "packages/KSPlayer/Package.swift").read_text(encoding="utf-8")
+        self.assertIn('name: "FFmpegKit"', native_manifest)
         self.assertIn('.library(name: "FFmpegKit", type: .static', native_manifest)
         self.assertIn('.library(name: "DisplayCriteria", type: .static', display_manifest)
         self.assertIn('.library(name: "KSPlayer", type: .static', player_manifest)
