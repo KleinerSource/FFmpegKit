@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -171,10 +172,12 @@ def prepare():
 
 def cache_key():
     digest = hashlib.sha256()
-    # 播放器、helper、Podspec 和许可证每次 prepare 都重新导出，不改变原生库制品。
+    # 原生库可复用键只覆盖编译配方；播放器、helper、Podspec 和许可证由 prepare 刷新。
     native_lock = {**LOCK, "sources": {name: spec for name, spec in LOCK["sources"].items() if name != "KSPlayer"}}
     digest.update(json.dumps(native_lock, sort_keys=True).encode("utf-8"))
-    digest.update((HERE / "build.py").read_bytes())
+    digest.update(json.dumps({"slices": SLICES, "order": ORDER, "libraries": LIBRARIES}, sort_keys=True).encode("utf-8"))
+    for function in (run, slice_environment, meson_cross, build_slice, framework):
+        digest.update(inspect.getsource(function).encode("utf-8"))
     digest.update(platform.machine().encode())
     if platform.system() == "Darwin":
         for args in (("xcodebuild", "-version"), ("xcrun", "--sdk", "iphoneos", "--show-sdk-version"),
@@ -339,10 +342,11 @@ def framework(module, library, header_dir, sdk, arches):
     run(["lipo", "-create", *[WORK / "slices" / f"{sdk}-{arch}" / "prefix/lib" / f"lib{library}.a" for arch in arches],
          "-output", destination / module])
     excluded = {
-        "Libavcodec": ("qsv", "vdpau", "dxva2", "d3d11va", "d3d12va", "videotoolbox", "mediacodec"),
-        "Libavutil": ("hwcontext_vulkan", "hwcontext_vdpau", "hwcontext_vaapi", "hwcontext_qsv", "hwcontext_opencl",
+        "Libavcodec": ("amfdec", "amfenc", "qsv", "vdpau", "dxva2", "d3d11va", "d3d12va", "vulkan_video", "videotoolbox", "mediacodec"),
+        "Libavutil": ("hwcontext_amf", "hwcontext_amf_internal", "hwcontext_vulkan", "hwcontext_vdpau", "hwcontext_vaapi", "hwcontext_qsv", "hwcontext_opencl",
                       "hwcontext_dxva2", "hwcontext_d3d11va", "hwcontext_d3d12va", "hwcontext_cuda", "hwcontext_videotoolbox",
                       "hwcontext_drm", "hwcontext_mediacodec", "hwcontext_ohcodec"),
+        "Libavfilter": ("vf_scale_cuda",),
     }.get(module, ())
     modules = destination / "Modules"
     modules.mkdir()

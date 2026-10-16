@@ -143,12 +143,26 @@ class SourceIntegrityTests(unittest.TestCase):
     def test_native_cache_reuses_libraries_for_player_only_changes(self):
         lock = deepcopy(native.LOCK)
         with (patch.object(native, "LOCK", lock),
+              patch.object(native, "ROOT", self.root),
               patch.object(native.platform, "system", return_value="Windows")):
             original = native.cache_key()
+            (self.root / "Sources/FFmpegKit").mkdir(parents=True)
+            (self.root / "Sources/FFmpegKit/helper.c").write_text("new helper", encoding="utf-8")
+            (self.root / "FFmpegKit.podspec").write_text("new podspec", encoding="utf-8")
+            self.assertEqual(native.cache_key(), original)
             lock["sources"]["KSPlayer"]["commit"] = "0" * 40
             self.assertEqual(native.cache_key(), original)
             lock["sources"]["FFmpeg"]["commit"] = "0" * 40
             self.assertNotEqual(native.cache_key(), original)
+
+    def test_native_cache_invalidates_when_framework_headers_change(self):
+        def changed_framework(*args, **kwargs):
+            return None
+
+        with (patch.object(native.platform, "system", return_value="Windows"),
+              patch.object(native, "framework", changed_framework)):
+            changed = native.cache_key()
+        self.assertNotEqual(changed, native.cache_key())
 
     def test_cached_build_refreshes_player_sources_without_compiling(self):
         (self.root / "build-complete.json").write_text(
@@ -178,6 +192,24 @@ class SourceIntegrityTests(unittest.TestCase):
         compile_slice.assert_not_called()
         self.assertEqual((self.root / "pods/KSPlayer/KSPlayer.podspec").read_text(encoding="utf-8"),
                          "current source")
+
+    def test_modulemaps_exclude_headers_for_disabled_platform_codecs(self):
+        headers = {"Libavutil": ("hwcontext_amf.h", "#include <AMF/core/Factory.h>\n"),
+                   "Libavcodec": ("amfdec.h", "#include <AMF/core/Factory.h>\n"),
+                   "Libavfilter": ("vf_scale_cuda.h", "#include <cuda.h>\n")}
+        framework_root = self.root / "frameworks"
+        with (patch.object(native, "WORK", self.root),
+              patch.object(native, "run")):
+            for module, (header, content) in headers.items():
+                header_root = self.root / "slices/iphoneos-arm64/prefix/include" / module.lower()
+                header_root.mkdir(parents=True)
+                (header_root / header).write_text(content, encoding="utf-8")
+                library = module.removeprefix("Lib")
+                native.framework(module, library, module.lower(), "iphoneos", ["arm64"])
+                modulemap = (framework_root / f"iphoneos/{module}.framework/Modules/module.modulemap").read_text(
+                    encoding="utf-8"
+                )
+                self.assertIn(f'exclude header "{header}"', modulemap)
 
 
 if __name__ == "__main__":

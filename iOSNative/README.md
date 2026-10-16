@@ -24,7 +24,7 @@ python3 -m unittest discover -s iOSNative -p test_build.py -v
 python3 -m unittest discover -s iOSNative/tests -p test_color_reference.py -v
 ```
 
-默认输出为 `FFmpegKit/build/ios-native`，可用 `--output` 指定，例如应用的 `build/ios-native`。`--components-dir` 指定三个独立源码仓库的父目录。清理输出后重复 `build` 会重新导出固定源码、校验依赖归档哈希并构建。缓存键包含锁清单、helper、podspec、构建器和 Xcode/SDK/构建工具版本。GMP 等主机辅助程序使用 macOS clang/SDK，目标代码使用 iOS clang/SDK；不会让主机程序继承 iOS 部署目标。
+默认输出为 `FFmpegKit/build/ios-native`，可用 `--output` 指定，例如应用的 `build/ios-native`。`--components-dir` 指定三个独立源码仓库的父目录。每次 `build` 都重新导出固定源码、helper、Podspec 和许可证，再检查原生库缓存。缓存键包含固定 C 库源码、构建器和 Xcode/SDK/构建工具版本；单独更新播放器或打包配置会复用原生库。清理输出后可重新构建。GMP 等主机辅助程序使用 macOS clang/SDK，目标代码使用 iOS clang/SDK；不会让主机程序继承 iOS 部署目标。
 
 构建固定 dav1d 1.4.3、SRT 1.5.3、libass 0.17.1、FreeType、FriBidi、HarfBuzz、GMP、Nettle、GnuTLS。FFmpeg 配置强制检查 VideoToolbox、dav1d、SRT、RTSP、RTMP、GnuTLS 等能力，缺项即失败。此入口不构建 libmpv 或 libplacebo。
 
