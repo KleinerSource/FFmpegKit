@@ -48,7 +48,7 @@ KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`
 
 2026-10-16 的 [Actions 38842658260](https://github.com/KleinerSource/FFmpegKit/actions/runs/38842658260) 已通过 FFmpeg n8.1 和配套依赖的真机 arm64、模拟器 arm64/x86_64 编译、XCFramework 打包及 11 项色彩参考测试。HarfBuzz 的交叉编译参数丢失和源码诊断升级为错误已修复。该运行随后在 CocoaPods 依赖解析阶段因找不到本地 DisplayCriteria 失败；`43caeae` 已将 `--include-podspecs` 改为官方支持的 glob，待后续运行验证。运行时版本与 Swift/链接验证仍不能由 C 库编译结果替代。
 
-`4b08bc9` 在原生构建成功后立即保存缓存，`36f577f` 确保缓存命中前刷新固定源码，`71b1a78` 将原生缓存限定为 C 库源码、构建器及工具链。播放器、helper、Podspec 和许可证每次重新导出，单独调整这些输入不再使 FFmpeg 库缓存失效。应用接入已同步推送到 `mobile_app` 的 `f777fac0` 和 `omm_app` 的 `04581a1`（当前固定 `4b08bc9`，最终版本待同步）；配置生成器 6 项回归通过。
+`4b08bc9` 在原生构建成功后立即保存缓存，`36f577f` 确保缓存命中前刷新固定源码，`71b1a78` 将原生缓存限定为 C 库源码、构建器及工具链。播放器、helper、Podspec 和许可证每次重新导出，单独调整这些输入不再使 FFmpeg 库缓存失效。应用接入已同步推送到 `mobile_app` 的 `f777fac0` 和 `omm_app` 的 `e4a45c5`（固定 `FFmpegKit` `e756985`、`KSPlayer` `77fd5e3`）；配置生成器 6 项回归通过。
 
 [Actions 38844956923](https://github.com/KleinerSource/FFmpegKit/actions/runs/38844956923) 已确认本地 Pods 解析成功，三架构原生缓存已保存。后续 Xcode 因逐文件复制的许可证同名而失败；`71b1a78` 将许可证作为目录资源保留层级，待后续编译验证。
 
@@ -62,14 +62,17 @@ KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`
 
 上述修订版的 [Actions 38855869114](https://github.com/KleinerSource/FFmpegKit/actions/runs/38855869114) 已通过 CocoaPods；缓存保护、FFmpeg 预览、播放器层、KSMEPlayer 及新增恢复/字幕测试均通过。最后剩下 AVPlayer ready expectation 与同步等待的时序问题；`c65853e` 将测试改为异步等待并将 expectation 注册提前，已锁入构建清单。最终 XCTest 与 device Release 仍待 Actions 验证。
 
-macOS 需执行新工作流或 [构建说明](README.md) 中的命令，验证三架构 XCFramework、CocoaPods 编译、Swift Package 模拟器 XCTest 和真机架构 Release 编译。包含 media_kit 的最终应用仍需完整链接，检查 FFmpeg/libmpv 共存、画中画、AirPlay 和播放路由。`omm_app` 工作流仍需手动触发，当前没有本机 Apple SDK 验证结果。
+[Actions 38861874792](https://github.com/KleinerSource/FFmpegKit/actions/runs/38861874792) 已在 macOS 15/Xcode 16.4 完成组件级验收；`omm_app` 全应用手动发布工作流仍需单独触发，本次未触发。完整应用打包、真机播放、协议服务、GPU/HDR 和设备回归仍待验收。
 
 设备验收还包括原故障片约 5:25、正常 H.264/HEVC/AV1、硬软解、seek/倍速/暂停、有限恢复、认证/超时/中断/取消、HDR10/HLG、Dolby 5/8/7 基础层、SDR、ASS/PGS。当前没有以上设备验收结果；不能由历史应用方案的 Dart 测试数量代替。
 
 2026-10-16 的 [Actions 38858241476](https://github.com/KleinerSource/FFmpegKit/actions/runs/38858241476) 已通过原生三架构、XCFramework、CocoaPods 和 Swift 编译；模拟器 XCTest 在 KSPlayerLayerTest.testPlayerLayer() 失败。Main Thread Checker 显示该测试从后台线程创建 UIView，而 KSPlayerLayer 要求主 actor。KSPlayer 55e3737 将该测试及播放器层操作移到主 actor，并以异步 expectation 等待；FFmpegKit 锁清单现固定此提交，下一轮 Actions 将验证完整 XCTest 和设备 Release。
 
 
-[Actions 38859650724](https://github.com/KleinerSource/FFmpegKit/actions/runs/38859650724) 确认 CocoaPods/Swift 编译通过；XCTest 揭示播放器层测试传入 isAutoPlay: false 后没有调用 prepareToPlay()，导致播放器保持 initialized，ready expectation 超时并引发后续状态断言失败。KSPlayer 4d9d85 显式准备播放器、检查 seek 成功并将等待上限收紧到有限值；FFmpegKit 锁清单已更新，等待下一轮 Actions 验证。
+[Actions 38859650724](https://github.com/KleinerSource/FFmpegKit/actions/runs/38859650724) 确认 CocoaPods/Swift 编译通过；XCTest 揭示播放器层测试传入 `isAutoPlay: false` 后没有调用 `prepareToPlay()`，播放器保持 `initialized`，ready expectation 超时。KSPlayer `a4d9d85` 显式准备播放器并为等待设置有限上限；下一轮继续检查 seek 状态。
 
 
-[Actions 38860829783](https://github.com/KleinerSource/FFmpegKit/actions/runs/38860829783) 的 CocoaPods 编译通过，模拟器 38 项测试中 37 项通过；唯一失败是测试在暂停后开始 seek 时立即期待 uffering。此时状态按设计仍为 paused，直到 seek completion 执行 utoPlay。KSPlayer 77fd5e3 修正即时状态断言，并在回调完成后验证播放器确实恢复播放；FFmpegKit 已锁定此提交，等待最终 Actions。
+[Actions 38860829783](https://github.com/KleinerSource/FFmpegKit/actions/runs/38860829783) 的 CocoaPods 编译通过，模拟器 38 项测试中 37 项通过；唯一失败是暂停后 seek 尚未完成时测试立即期待 `buffering`。这时状态保持 `paused`，直到 seek completion 执行 `autoPlay`。KSPlayer `77fd5e3` 修正状态断言，并在回调后验证播放器恢复播放。
+
+
+[Actions 38861874792](https://github.com/KleinerSource/FFmpegKit/actions/runs/38861874792) 最终通过：38 项模拟器 XCTest 全部通过（KSPlayerLayerTest.testPlayerLayer() 通过），设备 arm64 Release 编译成功；三架构 FFmpeg/XCFramework、CocoaPods、色彩 shader 检查也通过。工作流使用 FFmpegKit e756985，锁定 KSPlayer 77fd5e3；omm_app 工作流锁定同步于提交 e4a45c5。
