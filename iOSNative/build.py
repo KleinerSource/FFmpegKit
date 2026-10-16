@@ -54,6 +54,12 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def git_revision(path):
+    if not (path / ".git").exists():
+        return None
+    return run(["git", "-C", path, "rev-parse", "HEAD"], capture=True).stdout.strip()
+
+
 def extract(archive, destination):
     """拒绝越界链接和特殊文件，保留归档内的正常源码链接。"""
     with tarfile.open(archive) as source:
@@ -73,10 +79,20 @@ def fetch(name):
     spec = LOCK["sources"][name]
     destination = WORK / name
     if "git" in spec:
-        # 独立组件仓库可以包含尚未发布的固定提交；只导出提交，不读取工作树。
         local = COMPONENTS / name
+        if name == "KSPlayer":
+            # CI 传入已解析的最新检出；本地仓库则使用调用者当前分支 HEAD。
+            if (local / ".git").exists():
+                return local
+            branch = spec.get("branch", "main")
+            if not destination.exists():
+                run(["git", "clone", "--filter=blob:none", "--no-checkout", spec["git"], destination])
+            run(["git", "-C", destination, "fetch", "--quiet", "origin", branch])
+            run(["git", "-C", destination, "checkout", "--quiet", "--detach", "FETCH_HEAD"])
+            return destination
         if (local / ".git").exists():
             destination = local
+        # 其余 Git 源继续由 sources.lock.json 固定，尤其保持 FFmpeg n8.1 ABI。
         if not destination.exists():
             run(["git", "clone", "--filter=blob:none", "--no-checkout", spec["git"], destination])
         if subprocess.run(["git", "-C", str(destination), "cat-file", "-e", spec["commit"] + "^{commit}"],
@@ -115,7 +131,8 @@ def fetch(name):
 def export_git(name, destination):
     source = fetch(name)
     archive = WORK / (name + "-source.tar")
-    run(["git", "-C", source, "archive", "--format=tar", "-o", archive, LOCK["sources"][name]["commit"]])
+    revision = "HEAD" if name == "KSPlayer" else LOCK["sources"][name]["commit"]
+    run(["git", "-C", source, "archive", "--format=tar", "-o", archive, revision])
     if destination.exists():
         shutil.rmtree(destination)
     destination.mkdir(parents=True)
@@ -125,8 +142,16 @@ def export_git(name, destination):
 
 def prepare():
     WORK.mkdir(parents=True, exist_ok=True)
+    resolved_sources = {}
     for name in LOCK["sources"]:
-        fetch(name)
+        source = fetch(name)
+        spec = LOCK["sources"][name]
+        if name == "KSPlayer":
+            resolved_sources[name] = run(
+                ["git", "-C", source, "rev-parse", "HEAD"], capture=True
+            ).stdout.strip()
+        else:
+            resolved_sources[name] = spec.get("commit", spec.get("sha256"))
     for name in ("FFmpeg", "dav1d", "srt"):
         export_git(name, WORK / "sources" / name)
     # version.sh 会向上发现应用仓库；显式版本文件保证运行时不混入应用 Git 版本。
@@ -163,9 +188,18 @@ def prepare():
     shutil.copyfile(ROOT / "LICENSE", kit / "LICENSE")
     (licenses / "FFmpegKit").mkdir()
     shutil.copyfile(ROOT / "LICENSE", licenses / "FFmpegKit/LICENSE")
-    versions = {"ffmpeg_version": LOCK["ffmpeg_version"], "libav_versions": versions, "sources": {
-        name: spec.get("commit", spec.get("sha256")) for name, spec in LOCK["sources"].items()
-    }}
+    ffmpegkit_revision = git_revision(ROOT)
+    versions = {
+        "ffmpeg_version": LOCK["ffmpeg_version"],
+        "libav_versions": versions,
+        "sources": resolved_sources,
+        "components": {
+            "KSPlayer": resolved_sources["KSPlayer"],
+            "DisplayCriteria": resolved_sources["KSPlayer"],
+            "FFmpegKit": ffmpegkit_revision,
+            "Libass": ffmpegkit_revision,
+        },
+    }
     (kit / "native-versions.json").write_text(json.dumps(versions, indent=2) + "\n", encoding="utf-8")
     return pods
 

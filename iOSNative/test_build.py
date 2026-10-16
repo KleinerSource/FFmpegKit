@@ -85,6 +85,31 @@ class SourceIntegrityTests(unittest.TestCase):
                     native.export_git("library", output)
         self.assertEqual((source / "value.c").read_text(encoding="utf-8"), "dirty\n")
 
+    def test_exports_current_ksplayer_head_instead_of_a_pinned_commit(self):
+        components = self.root / "components"
+        source = components / "KSPlayer"
+        source.mkdir(parents=True)
+        subprocess.run(["git", "init", "--quiet", str(source)], check=True)
+        subprocess.run(["git", "-C", str(source), "config", "user.name", "Test"], check=True)
+        subprocess.run(["git", "-C", str(source), "config", "user.email", "test@example.invalid"], check=True)
+        value = source / "value.swift"
+        value.write_text("old\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(source), "add", "value.swift"], check=True)
+        subprocess.run(["git", "-C", str(source), "commit", "--quiet", "-m", "old"], check=True)
+        value.write_text("latest\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(source), "add", "value.swift"], check=True)
+        subprocess.run(["git", "-C", str(source), "commit", "--quiet", "-m", "latest"], check=True)
+        output = self.root / "exported-ksplayer"
+        lock = {"sources": {"KSPlayer": {
+            "git": "https://invalid.test/KSPlayer.git", "branch": "main"
+        }}}
+
+        with (patch.object(native, "COMPONENTS", components),
+              patch.object(native, "WORK", self.root), patch.object(native, "LOCK", lock)):
+            native.export_git("KSPlayer", output)
+
+        self.assertEqual((output / "value.swift").read_text(encoding="utf-8"), "latest\n")
+
     def test_slice_environment_separates_host_and_ios_compilers(self):
         class Result:
             def __init__(self, stdout):
@@ -150,7 +175,7 @@ class SourceIntegrityTests(unittest.TestCase):
             (self.root / "Sources/FFmpegKit/helper.c").write_text("new helper", encoding="utf-8")
             (self.root / "FFmpegKit.podspec").write_text("new podspec", encoding="utf-8")
             self.assertEqual(native.cache_key(), original)
-            lock["sources"]["KSPlayer"]["commit"] = "0" * 40
+            lock["sources"]["KSPlayer"]["branch"] = "develop"
             self.assertEqual(native.cache_key(), original)
             lock["sources"]["FFmpeg"]["commit"] = "0" * 40
             self.assertNotEqual(native.cache_key(), original)
