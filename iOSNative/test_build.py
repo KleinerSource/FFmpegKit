@@ -1,6 +1,7 @@
 import importlib.util
 import io
 from copy import deepcopy
+import json
 from pathlib import Path
 import shlex
 import subprocess
@@ -148,6 +149,35 @@ class SourceIntegrityTests(unittest.TestCase):
             self.assertEqual(native.cache_key(), original)
             lock["sources"]["FFmpeg"]["commit"] = "0" * 40
             self.assertNotEqual(native.cache_key(), original)
+
+    def test_cached_build_refreshes_player_sources_without_compiling(self):
+        (self.root / "build-complete.json").write_text(
+            json.dumps({"cache_key": "fixture"}), encoding="utf-8"
+        )
+        for module in native.LIBRARIES:
+            info = self.root / "pods/FFmpegKit/Frameworks" / f"{module}.xcframework/Info.plist"
+            info.parent.mkdir(parents=True)
+            info.touch()
+
+        def prepare():
+            for file in ("KSPlayer/KSPlayer.podspec", "KSPlayer/DisplayCriteria.podspec",
+                         "FFmpegKit/FFmpegKit.podspec", "FFmpegKit/Libass.podspec",
+                         "FFmpegKit/Sources/FFmpegKit/include/avformat_shim.h",
+                         "FFmpegKit/native-versions.json"):
+                path = self.root / "pods" / file
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("current source", encoding="utf-8")
+
+        with (patch.object(native, "WORK", self.root),
+              patch.object(native.platform, "system", return_value="Darwin"),
+              patch.object(native.shutil, "which", return_value="fixture"),
+              patch.object(native, "cache_key", return_value="fixture"),
+              patch.object(native, "prepare", side_effect=prepare),
+              patch.object(native, "build_slice") as compile_slice):
+            native.build(3)
+        compile_slice.assert_not_called()
+        self.assertEqual((self.root / "pods/KSPlayer/KSPlayer.podspec").read_text(encoding="utf-8"),
+                         "current source")
 
 
 if __name__ == "__main__":

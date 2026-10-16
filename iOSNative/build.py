@@ -368,6 +368,7 @@ def build(jobs):
         if not shutil.which(tool):
             raise RuntimeError(f"缺少构建工具: {tool}，请按 README 安装工具链")
     key = cache_key()
+    prepare()
     stamp = WORK / "build-complete.json"
     if stamp.exists() and json.loads(stamp.read_text())["cache_key"] == key:
         expected = WORK / "pods/FFmpegKit/Frameworks"
@@ -378,7 +379,6 @@ def build(jobs):
                 and all((WORK / "pods" / file).is_file() for file in pod_files)):
             print("本地依赖已匹配组件源码与工具链缓存。")
             return
-    prepare()
     for sdk, arch in SLICES:
         build_slice(sdk, arch, jobs)
     output = WORK / "pods/FFmpegKit/Frameworks"
