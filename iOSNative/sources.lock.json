@@ -5,7 +5,7 @@
   "sources": {
     "KSPlayer": {
       "git": "https://github.com/KleinerSource/KSPlayer.git",
-      "commit": "8ab33fa341364fb00ed1569d43e82afbb8a1e346",
+      "commit": "5678ee32993de494a4e68d923509827c48370e54",
       "upstream_commit": "fb782b6f93bef9b68181a0d41e9dd22ef53d715b"
     },
     "FFmpeg": {

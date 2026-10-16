@@ -7,7 +7,7 @@
 | 组件 | 上游基线 | 当前源码提交 |
 | --- | --- | --- |
 | FFmpeg | 官方 n8.1 `9047fa1b084f76b1b4d065af2d743df1b40dfb56` | `904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b` |
-| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `8ab33fa341364fb00ed1569d43e82afbb8a1e346` |
+| KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `5678ee32993de494a4e68d923509827c48370e54` |
 | FFmpegKit | 构建器快照 `b80cde8f476bbc374310e9a34e2cf17104705030` | `KleinerSource/FFmpegKit` 当前分支 HEAD（以 `git rev-parse HEAD` 为准） |
 
 KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`、协议/恢复 `52285f3`；提交 `88f1a64` 还统一了 CocoaPods 模块，与 SwiftPM 的单模块布局一致。协议恢复提交依赖显示提交提供的输出能力和字幕清理接口，因此显示代码先提交。FFmpeg 的 Metal 分配改动和 FFmpegKit 的构建入口分别保留在各自仓库。
@@ -59,6 +59,8 @@ KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`
 [Actions 38854201762](https://github.com/KleinerSource/FFmpegKit/actions/runs/38854201762) 命中 C 库缓存后仍能复现：错误缩减为 Swift closure 显式捕获和 `SwsFlags.rawValue` 的有符号转换；`575f53f` 已修复并锁入构建清单。该版本的 CocoaPods、XCTest 和设备 Release 验证待 Actions 执行。
 
 [Actions 38854608522](https://github.com/KleinerSource/FFmpegKit/actions/runs/38854608522) 的 CocoaPods/Swift 编译通过。模拟器 XCTest 暴露了确定性夹具的同步完成等待和 1 秒片长、播放器预览未先等待 ready、缓存 purge 忽略 active key 三个独立问题；`8ab33fa` 改为异步生成 3 秒夹具、等待 FFmpeg 播放器 ready、禁用该状态测试的自动播放，并让 purge 排除活跃缓存项。修订版 XCTest 与设备 Release 尚待 Actions 验证。
+
+上述修订版的 [Actions 38855869114](https://github.com/KleinerSource/FFmpegKit/actions/runs/38855869114) 已通过 CocoaPods；缓存保护、FFmpeg 预览、播放器层、KSMEPlayer 及新增恢复/字幕测试均通过。最后剩下 AVPlayer ready expectation 注册顺序过晚，`5678ee3` 已调整顺序并锁入构建清单；最终 XCTest 与 device Release 仍待 Actions 验证。
 
 macOS 需执行新工作流或 [构建说明](README.md) 中的命令，验证三架构 XCFramework、CocoaPods 编译、Swift Package 模拟器 XCTest 和真机架构 Release 编译。包含 media_kit 的最终应用仍需完整链接，检查 FFmpeg/libmpv 共存、画中画、AirPlay 和播放路由。`omm_app` 工作流仍需手动触发，当前没有本机 Apple SDK 验证结果。
 
