@@ -57,6 +57,39 @@ class StaticFrameworkTests(unittest.TestCase):
         self.assertIn('framework module DisplayCriteria', modulemap)
         self.assertIn('umbrella header "DisplayCriteria.h"', modulemap)
         self.assertTrue((framework / "Headers/AVDisplayCriteriaKS.h").is_file())
+        self.assertTrue((framework / "Headers/DisplayCriteria.h").is_file())
+
+    def test_ffmpegkit_umbrella_header_is_in_framework_headers(self):
+        library = self.root / "libFFmpegKit.a"
+        library.write_bytes(b"archive")
+        headers = []
+        for name in ("avcodec_shim.h", "avformat_shim.h"):
+            header = self.root / name
+            header.write_text("", encoding="utf-8")
+            headers.append(header)
+        with patch.object(distribute.native, "WORK", self.root):
+            framework = distribute.static_framework("FFmpegKit", library, None,
+                                                    "iphoneos", headers)
+        modulemap = (framework / "Modules/module.modulemap").read_text(encoding="utf-8")
+        self.assertIn('umbrella header "FFmpegKit.h"', modulemap)
+        self.assertTrue((framework / "Headers/FFmpegKit.h").is_file())
+        self.assertIn('#import "avcodec_shim.h"',
+                      (framework / "Headers/FFmpegKit.h").read_text(encoding="utf-8"))
+
+    def test_archives_xcode_target_object_when_library_is_not_emitted(self):
+        products = self.root / "Products"
+        products.mkdir()
+        object_file = products / "FFmpegKit.o"
+        object_file.write_bytes(b"object")
+
+        def create_archive(args, cwd):
+            Path(args[3]).write_bytes(b"archive")
+
+        with patch.object(distribute, "run", side_effect=create_archive) as run:
+            library = distribute.static_library("FFmpegKit", products, self.root)
+
+        self.assertEqual(library.read_bytes(), b"archive")
+        run.assert_called_once_with(("libtool", "-static", "-o", library, object_file), self.root)
 
     def test_generates_static_packages_from_current_component_sources(self):
         ffmpegkit = self.root / "FFmpegKit"
@@ -84,9 +117,11 @@ class StaticFrameworkTests(unittest.TestCase):
         native_manifest = (package_root / "packages/Native/Package.swift").read_text(encoding="utf-8")
         display_manifest = (package_root / "packages/DisplayCriteria/Package.swift").read_text(encoding="utf-8")
         player_manifest = (package_root / "packages/KSPlayer/Package.swift").read_text(encoding="utf-8")
+        self.assertIn('name: "FFmpegKit"', native_manifest)
         self.assertIn('.library(name: "FFmpegKit", type: .static', native_manifest)
         self.assertIn('.library(name: "DisplayCriteria", type: .static', display_manifest)
         self.assertIn('.library(name: "KSPlayer", type: .static', player_manifest)
+        self.assertLess(player_manifest.index("products:"), player_manifest.index("dependencies:"))
         self.assertIn('.package(name: "FFmpegKit", path: "../Native")', player_manifest)
         self.assertIn('.process("Metal/Shaders.metal")', player_manifest)
         for name in distribute.CLANG_MODULES:

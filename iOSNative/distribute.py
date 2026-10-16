@@ -72,7 +72,7 @@ def package_sources():
         native_pkg: f'''// swift-tools-version:5.9
 import PackageDescription
 let package = Package(
-  name: "Native",
+  name: "FFmpegKit",
   platforms: [.iOS(.v16)],
   products: [.library(name: "FFmpegKit", type: .static, targets: ["FFmpegKit"])],
   targets: [
@@ -105,11 +105,11 @@ import PackageDescription
 let package = Package(
   name: "KSPlayer",
   platforms: [.iOS(.v16)],
+  products: [.library(name: "KSPlayer", type: .static, targets: ["KSPlayer"])],
   dependencies: [
     .package(name: "FFmpegKit", path: "../Native"),
     .package(name: "DisplayCriteria", path: "../DisplayCriteria")
   ],
-  products: [.library(name: "KSPlayer", type: .static, targets: ["KSPlayer"])],
   targets: [
     .target(name: "KSPlayer", dependencies: [
       .product(name: "FFmpegKit", package: "FFmpegKit"),
@@ -145,12 +145,9 @@ def static_framework(name, library, module_directory, platform, headers=None):
             shutil.copyfile(header, header_root / header.name)
         modules = framework / "Modules"
         modules.mkdir()
-        umbrella = modules / f"{name}.h"
+        umbrella = header_root / f"{name}.h"
         umbrella.write_text("".join(f'#import "{header.name}"\n' for header in headers), encoding="utf-8")
-        if name == "FFmpegKit":
-            modulemap = f'framework module {name} {{\n  umbrella header "{name}.h"\n  export *\n}}\n'
-        else:
-            modulemap = f'framework module {name} {{\n  umbrella header "{name}.h"\n  export *\n}}\n'
+        modulemap = f'framework module {name} {{\n  umbrella header "{name}.h"\n  export *\n}}\n'
         (modules / "module.modulemap").write_text(modulemap, encoding="utf-8")
     else:
         raise RuntimeError(f"{name} framework module 信息缺失")
@@ -171,6 +168,18 @@ def static_framework(name, library, module_directory, platform, headers=None):
     return framework
 
 
+def static_library(name, products, package):
+    library = products / f"lib{name}.a"
+    if library.is_file():
+        return library
+    object_file = products / f"{name}.o"
+    if object_file.is_file():
+        run(("libtool", "-static", "-o", library, object_file), package)
+    if not library.is_file():
+        raise RuntimeError(f"{name} 静态库没有生成: {library}")
+    return library
+
+
 def build_xcframework(name, package, header_paths=()):
     work = native.WORK / "distribution/archives" / name
     work.mkdir(parents=True, exist_ok=True)
@@ -185,9 +194,7 @@ def build_xcframework(name, package, header_paths=()):
              "-derivedDataPath", derived, "BUILD_LIBRARY_FOR_DISTRIBUTION=YES",
              "CODE_SIGNING_ALLOWED=NO", "ONLY_ACTIVE_ARCH=NO", f"ARCHS={archs}"), package)
         products = derived / "Build/Products" / ("Release-iphoneos" if sdk == "iphoneos" else "Release-iphonesimulator")
-        library = products / f"lib{name}.a"
-        if not library.is_file():
-            raise RuntimeError(f"{name} 静态库没有生成: {library}")
+        library = static_library(name, products, package)
         module_dir = products / f"{name}.swiftmodule"
         copied_headers = [Path(path) for path in header_paths]
         framework = static_framework(name, library, module_dir if module_dir.is_dir() else None,
