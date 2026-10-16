@@ -9,9 +9,10 @@
       "upstream_commit": "fb782b6f93bef9b68181a0d41e9dd22ef53d715b"
     },
     "FFmpeg": {
-      "git": "https://github.com/FFmpeg/FFmpeg.git",
+      "git": "https://github.com/KleinerSource/FFmpeg.git",
       "commit": "904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b",
-      "upstream_commit": "9047fa1b084f76b1b4d065af2d743df1b40dfb56"
+      "upstream_commit": "9047fa1b084f76b1b4d065af2d743df1b40dfb56",
+      "upstream_git": "https://github.com/FFmpeg/FFmpeg.git"
     },
     "dav1d": {
       "git": "https://github.com/videolan/dav1d.git",
@@ -59,5 +60,11 @@
     "libavutil": "60.26.100",
     "libswresample": "6.3.100",
     "libswscale": "9.5.100"
+  },
+  "repository_owner": "KleinerSource",
+  "repositories": {
+    "FFmpeg": "https://github.com/KleinerSource/FFmpeg.git",
+    "KSPlayer": "https://github.com/KleinerSource/KSPlayer.git",
+    "FFmpegKit": "https://github.com/KleinerSource/FFmpegKit.git"
   }
 }

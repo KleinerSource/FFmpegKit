@@ -5,7 +5,8 @@ on:
     inputs:
       ffmpeg_repository:
         description: '包含锁定增强提交的 FFmpeg 仓库，格式 owner/repo'
-        required: true
+        required: false
+        default: KleinerSource/FFmpeg
         type: string
       ksplayer_repository:
         description: '包含锁定增强提交的 KSPlayer 仓库，格式 owner/repo'

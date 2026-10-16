@@ -1,6 +1,6 @@
 # iOS 播放组件源码升级交付记录
 
-本次将增强直接落在独立 KSPlayer、FFmpeg、FFmpegKit 源码仓库，替代应用内构建补丁方案。三个仓库都使用 `senplayer-ffmpeg81` 本地分支，尚未推送。`mobile_app` 与 `omm_app` 保持回退状态，因此当前应用仍使用旧组件；这份交付不代表应用升级已生效。Apple 编译、GPU、协议服务器和真机验收未执行。
+本次将增强直接落在独立 KSPlayer、FFmpeg、FFmpegKit 源码仓库，替代应用内构建补丁方案。三个仓库都使用 `KleinerSource` 命名空间和 `senplayer-ffmpeg81` 本地分支，尚未推送。`mobile_app` 与 `omm_app` 保持回退状态，因此当前应用仍使用旧组件；这份交付不代表应用升级已生效。Apple 编译、GPU、协议服务器和真机验收未执行。
 
 ## 源码基线与提交
 

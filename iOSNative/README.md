@@ -2,7 +2,11 @@
 
 此入口构建 FFmpeg n8.1、KSPlayer 与配套依赖，直接使用组件源码提交。输出包含真机 arm64、模拟器 arm64/x86_64、保持原名的 Swift 模块、KSPlayer Metal 资源和依赖许可证。最低 iOS 16。
 
-三个组件当前只在本地 `senplayer-ffmpeg81` 分支交付，尚未推送。锁清单中的增强提交不在官方 FFmpeg 仓库；请携带三个本地仓库到 macOS，或先把增强提交发布到自有组件仓库，再配置 CI 的仓库输入。`mobile_app` 和 `omm_app` 保持用户回退状态，尚未接入这些新制品。
+三个组件统一使用 `KleinerSource` 命名空间，当前在本地 `senplayer-ffmpeg81` 分支交付，尚未推送。锁清单中的增强提交位于 `KleinerSource/FFmpeg` 镜像仓库（上游仍记录为官方 FFmpeg）；请携带三个本地仓库到 macOS，或先把增强提交发布到自有组件仓库，再配置 CI 的仓库输入。`mobile_app` 和 `omm_app` 保持用户回退状态，尚未接入这些新制品。
+
+## 上传到 GitHub
+
+三个仓库的目标地址统一为：`KleinerSource/KSPlayer`、`KleinerSource/FFmpeg`、`KleinerSource/FFmpegKit`。当前分支名保留为 `senplayer-ffmpeg81`；上传时可直接推送该分支，或在你的 GitHub 仓库中将它设为默认分支。
 
 ## 在 macOS 构建
 

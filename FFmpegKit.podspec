@@ -4,10 +4,10 @@ Pod::Spec.new do |s|
   s.name = 'FFmpegKit'
   s.version = '8.1.0'
   s.summary = 'Locally built FFmpeg 8.1 and Swift compatibility helpers'
-  s.homepage = 'https://github.com/FFmpeg/FFmpeg'
+  s.homepage = 'https://github.com/KleinerSource/FFmpegKit'
   s.authors = { 'FFmpeg contributors' => 'ffmpeg-devel@ffmpeg.org' }
   s.license = { :type => 'GPL-3.0-or-later', :file => "#{native}Licenses/FFmpeg/COPYING.GPLv3" }
-  s.source = { :git => 'https://github.com/FFmpeg/FFmpeg.git', :tag => 'n8.1' }
+  s.source = { :git => 'https://github.com/KleinerSource/FFmpegKit.git', :tag => 'n8.1' }
   s.ios.deployment_target = '16.0'
   s.static_framework = true
   s.source_files = 'Sources/FFmpegKit/**/*.{h,c}'
