@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | FFmpeg | 官方 n8.1 `9047fa1b084f76b1b4d065af2d743df1b40dfb56` | `904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b` |
 | KSPlayer | 自有 fork `fb782b6f93bef9b68181a0d41e9dd22ef53d715b` | `2704929a40ee1bf1f6577799d038a8a09620bee9` |
-| FFmpegKit | 构建器快照 `b80cde8f476bbc374310e9a34e2cf17104705030` | 当前分支 HEAD `2f67159`（上传元数据同步后会更新） |
+| FFmpegKit | 构建器快照 `b80cde8f476bbc374310e9a34e2cf17104705030` | `KleinerSource/FFmpegKit` 当前分支 HEAD（以 `git rev-parse HEAD` 为准） |
 
 KSPlayer 的能力提交为 API/依赖适配 `d6edbef`、显示/字幕 `18d4e86`、协议/恢复 `52285f3`；当前分支 HEAD `2704929` 还包含 KleinerSource 集成元数据。协议恢复提交依赖显示提交提供的输出能力和字幕清理接口，因此显示代码先提交。FFmpeg 的 Metal 分配改动和 FFmpegKit 的构建入口分别保留在各自仓库。
 
