@@ -72,6 +72,7 @@ class StaticFrameworkTests(unittest.TestCase):
         self.assertIn('.library(name: "FFmpegKit", type: .static', native_manifest)
         self.assertIn('.library(name: "DisplayCriteria", type: .static', display_manifest)
         self.assertIn('.library(name: "KSPlayer", type: .static', player_manifest)
+        self.assertLess(player_manifest.index("products:"), player_manifest.index("dependencies:"))
         self.assertIn('.package(name: "FFmpegKit", path: "../Native")', player_manifest)
         self.assertIn('.process("Metal/Shaders.metal")', player_manifest)
         for name in distribute.CLANG_MODULES:

@@ -105,11 +105,11 @@ import PackageDescription
 let package = Package(
   name: "KSPlayer",
   platforms: [.iOS(.v16)],
+  products: [.library(name: "KSPlayer", type: .static, targets: ["KSPlayer"])],
   dependencies: [
     .package(name: "FFmpegKit", path: "../Native"),
     .package(name: "DisplayCriteria", path: "../DisplayCriteria")
   ],
-  products: [.library(name: "KSPlayer", type: .static, targets: ["KSPlayer"])],
   targets: [
     .target(name: "KSPlayer", dependencies: [
       .product(name: "FFmpegKit", package: "FFmpegKit"),
