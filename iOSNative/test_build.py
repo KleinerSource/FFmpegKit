@@ -115,7 +115,7 @@ class SourceIntegrityTests(unittest.TestCase):
         self.assertIn("-target arm64-apple-ios", env["CFLAGS"])
         self.assertIn("-stdlib=libc++", env["CXXFLAGS"])
 
-    def test_harfbuzz_setup_preserves_target_flags_when_adding_warnings(self):
+    def test_harfbuzz_setup_preserves_target_flags_and_disables_pragma_errors(self):
         for sdk, arch in native.SLICES:
             with self.subTest(sdk=sdk, arch=arch):
                 sdkroot = "/SDK with spaces/iOS.sdk"
@@ -134,7 +134,7 @@ class SourceIntegrityTests(unittest.TestCase):
                     option = next(arg for arg in setup if str(arg).startswith(f"-D{language}_args="))
                     effective_flags = shlex.split(option.split("=", 1)[1])
                     self.assertEqual(effective_flags[:len(flags)], flags)
-                    self.assertIn("-Wno-cast-function-type-strict", effective_flags)
+                    self.assertIn("-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", effective_flags)
                     if language == "cpp":
                         self.assertIn("-stdlib=libc++", effective_flags)
 

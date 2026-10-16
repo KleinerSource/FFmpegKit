@@ -268,9 +268,10 @@ def build_slice(sdk, arch, jobs):
                 "fribidi": ["-Ddeprecated=false", "-Ddocs=false", "-Dtests=false"],
                 "harfbuzz": ["-Dglib=disabled", "-Dgobject=disabled", "-Dicu=disabled", "-Ddocs=disabled", "-Dtests=disabled",
                              "-Dcairo=disabled", "-Dchafa=disabled", "-Dintrospection=disabled", "-Dfreetype=enabled",
-                             # Meson 的命令行选项替换 cross file 的同名数组，不能只传警告开关。
-                             f"-Dc_args={env['CFLAGS']} -Wno-cast-function-type-strict",
-                             f"-Dcpp_args={env['CXXFLAGS']} -Wno-cast-function-type-strict"],
+                             # 5.3.1 的源码 pragma 会把新版 Clang 警告升级为错误；使用其官方开关。
+                             # Meson 的命令行数组会替换 cross file，必须保留完整目标参数。
+                             f"-Dc_args={env['CFLAGS']} -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR",
+                             f"-Dcpp_args={env['CXXFLAGS']} -DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR"],
             }[name]
             run(["meson", "setup", build, source, "--cross-file", cross, "--prefix", prefix,
                  "--libdir=lib", "--default-library=static", "--buildtype=release", "--wrap-mode=nodownload", *options], env=env)
