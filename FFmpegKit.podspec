@@ -12,6 +12,13 @@ Pod::Spec.new do |s|
   s.source = { :git => 'https://github.com/KleinerSource/FFmpegKit.git', :tag => 'n8.1' }
   s.ios.deployment_target = '16.0'
   s.static_framework = true
+  # Pull FFmpeg 8.1 into the executable before media_kit's FFmpeg 6 dylibs
+  # can satisfy the same C symbols with an incompatible structure layout.
+  s.user_target_xcconfig = {
+    'OTHER_LDFLAGS' => '$(inherited) ' + %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
+      "-force_load \"$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/#{name}.framework/#{name}\""
+    }.join(' ')
+  }
   s.source_files = 'Sources/FFmpegKit/**/*.{h,c}'
   s.public_header_files = 'Sources/FFmpegKit/include/*.h'
   s.resource_bundles = { 'FFmpegKit_FFmpegKit' => ["#{native}Licenses", "#{native}native-versions.json"] }

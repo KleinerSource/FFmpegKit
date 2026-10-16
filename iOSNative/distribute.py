@@ -255,6 +255,12 @@ end
     'Frameworks/Libsw*.xcframework', 'Frameworks/libdav1d.xcframework', 'Frameworks/libsrt.xcframework',
     'Frameworks/gmp.xcframework', 'Frameworks/nettle.xcframework', 'Frameworks/hogweed.xcframework',
     'Frameworks/gnutls.xcframework'
+  # Keep FFmpeg 8.1 definitions in the executable when media_kit is also linked.
+  s.user_target_xcconfig = {
+    'OTHER_LDFLAGS' => '$(inherited) ' + %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
+      '-force_load "$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/' + name + '.framework/' + name + '"'
+    }.join(' ')
+  }
   s.resource_bundles = { 'FFmpegKit_FFmpegKit' => ['Licenses', 'native-versions.json'] }
   s.frameworks = 'AudioToolbox', 'AVFoundation', 'CoreMedia', 'CoreVideo', 'VideoToolbox', 'Security'
   s.libraries = 'bz2', 'c++', 'iconv', 'resolv', 'z'

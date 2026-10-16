@@ -30,6 +30,21 @@ class StaticFrameworkTests(unittest.TestCase):
         with (framework / "Info.plist").open("rb") as source:
             self.assertEqual(plistlib.load(source)["MachOType"], "staticlib")
 
+    def test_source_and_prebuilt_pods_force_load_ffmpeg_with_media_kit(self):
+        for name in ("KSPlayer", "FFmpegKit"):
+            (self.root / name).mkdir()
+        distribute.podspecs(self.root)
+        specs = [distribute.native.ROOT / "FFmpegKit.podspec",
+                 self.root / "FFmpegKit/FFmpegKit.podspec"]
+        for spec in specs:
+            text = spec.read_text(encoding="utf-8")
+            with self.subTest(spec=spec):
+                self.assertIn("s.user_target_xcconfig", text)
+                self.assertIn("'OTHER_LDFLAGS' => '$(inherited) '", text)
+                self.assertIn("-force_load", text)
+                self.assertIn("$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/", text)
+                self.assertIn("%w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale]", text)
+
     def test_wraps_clang_static_library_with_public_module_map(self):
         library = self.root / "libDisplayCriteria.a"
         library.write_bytes(b"archive")
