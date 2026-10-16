@@ -43,6 +43,21 @@ class StaticFrameworkTests(unittest.TestCase):
         self.assertIn('umbrella header "DisplayCriteria.h"', modulemap)
         self.assertTrue((framework / "Headers/AVDisplayCriteriaKS.h").is_file())
 
+    def test_archives_xcode_target_object_when_library_is_not_emitted(self):
+        products = self.root / "Products"
+        products.mkdir()
+        object_file = products / "FFmpegKit.o"
+        object_file.write_bytes(b"object")
+
+        def create_archive(args, cwd):
+            Path(args[3]).write_bytes(b"archive")
+
+        with patch.object(distribute, "run", side_effect=create_archive) as run:
+            library = distribute.static_library("FFmpegKit", products, self.root)
+
+        self.assertEqual(library.read_bytes(), b"archive")
+        run.assert_called_once_with(("libtool", "-static", "-o", library, object_file), self.root)
+
     def test_generates_static_packages_from_current_component_sources(self):
         ffmpegkit = self.root / "FFmpegKit"
         (ffmpegkit / "Sources/FFmpegKit/include").mkdir(parents=True)
