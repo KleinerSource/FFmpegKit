@@ -9,7 +9,7 @@ on:
         default: KleinerSource/FFmpeg
         type: string
       ksplayer_repository:
-        description: '包含锁定增强提交的 KSPlayer 仓库，格式 owner/repo'
+        description: 'KSPlayer 仓库，workflow 从 main 拉取最新版本，格式 owner/repo'
         required: true
         default: KleinerSource/KSPlayer
         type: string
@@ -21,7 +21,7 @@ on:
         default: KleinerSource/FFmpeg
         type: string
       ksplayer_repository:
-        description: '包含锁定增强提交的 KSPlayer 仓库，格式 owner/repo'
+        description: 'KSPlayer 仓库，workflow 从 main 拉取最新版本，格式 owner/repo'
         required: false
         default: KleinerSource/KSPlayer
         type: string
@@ -44,15 +44,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Read fixed component revisions
+      - name: Read FFmpeg revision and KSPlayer branch
         id: revisions
         run: |
           python3 - <<'PY'
           import json, os
           lock = json.load(open('iOSNative/sources.lock.json', encoding='utf-8'))
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
-              for name in ('KSPlayer', 'FFmpeg'):
-                  print(f'{name}={lock["sources"][name]["commit"]}', file=output)
+              print(f'FFmpeg={lock["sources"]["FFmpeg"]["commit"]}', file=output)
+              print(f'KSPlayer_BRANCH={lock["sources"]["KSPlayer"].get("branch", "main")}', file=output)
           PY
       - uses: actions/checkout@v4
         with:
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${{ inputs.ksplayer_repository }}
-          ref: ${{ steps.revisions.outputs.KSPlayer }}
+          ref: ${{ steps.revisions.outputs.KSPlayer_BRANCH }}
           token: ${{ secrets.COMPONENTS_TOKEN || github.token }}
           path: KSPlayer
       - name: Install native toolchain
