@@ -41,7 +41,9 @@ class StaticFrameworkTests(unittest.TestCase):
             with self.subTest(spec=spec):
                 self.assertIn("s.user_target_xcconfig", text)
                 self.assertIn("'OTHER_LDFLAGS' => '$(inherited) '", text)
-                self.assertIn("-force_load", text)
+                self.assertIn("-Wl,-force_load,", text)
+                self.assertNotIn('-force_load \\"', text)
+                self.assertNotIn("'-force_load ", text)
                 self.assertIn("$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/", text)
                 self.assertIn("%w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale]", text)
 

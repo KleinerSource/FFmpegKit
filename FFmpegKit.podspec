@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   # can satisfy the same C symbols with an incompatible structure layout.
   s.user_target_xcconfig = {
     'OTHER_LDFLAGS' => '$(inherited) ' + %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
-      "-force_load \"$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/#{name}.framework/#{name}\""
+      "\"-Wl,-force_load,$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/#{name}.framework/#{name}\""
     }.join(' ')
   }
   s.source_files = 'Sources/FFmpegKit/**/*.{h,c}'

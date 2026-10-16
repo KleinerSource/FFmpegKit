@@ -265,7 +265,7 @@ end
   # Keep FFmpeg 8.1 definitions in the executable when media_kit is also linked.
   s.user_target_xcconfig = {
     'OTHER_LDFLAGS' => '$(inherited) ' + %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
-      '-force_load "$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/' + name + '.framework/' + name + '"'
+      '"-Wl,-force_load,$(PODS_XCFRAMEWORKS_BUILD_DIR)/FFmpegKit/' + name + '.framework/' + name + '"'
     }.join(' ')
   }
   s.resource_bundles = { 'FFmpegKit_FFmpegKit' => ['Licenses', 'native-versions.json'] }
