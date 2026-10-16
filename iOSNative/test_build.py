@@ -1,5 +1,6 @@
 import importlib.util
 import io
+from copy import deepcopy
 from pathlib import Path
 import shlex
 import subprocess
@@ -137,6 +138,16 @@ class SourceIntegrityTests(unittest.TestCase):
                     self.assertIn("-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", effective_flags)
                     if language == "cpp":
                         self.assertIn("-stdlib=libc++", effective_flags)
+
+    def test_native_cache_reuses_libraries_for_player_only_changes(self):
+        lock = deepcopy(native.LOCK)
+        with (patch.object(native, "LOCK", lock),
+              patch.object(native.platform, "system", return_value="Windows")):
+            original = native.cache_key()
+            lock["sources"]["KSPlayer"]["commit"] = "0" * 40
+            self.assertEqual(native.cache_key(), original)
+            lock["sources"]["FFmpeg"]["commit"] = "0" * 40
+            self.assertNotEqual(native.cache_key(), original)
 
 
 if __name__ == "__main__":
