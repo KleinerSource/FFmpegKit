@@ -1,6 +1,7 @@
 import importlib.util
 import io
 from pathlib import Path
+import shlex
 import subprocess
 import tarfile
 import tempfile
@@ -113,6 +114,29 @@ class SourceIntegrityTests(unittest.TestCase):
         self.assertEqual(env["IPHONEOS_DEPLOYMENT_TARGET"], "")
         self.assertIn("-target arm64-apple-ios", env["CFLAGS"])
         self.assertIn("-stdlib=libc++", env["CXXFLAGS"])
+
+    def test_harfbuzz_setup_preserves_target_flags_when_adding_warnings(self):
+        for sdk, arch in native.SLICES:
+            with self.subTest(sdk=sdk, arch=arch):
+                sdkroot = "/SDK with spaces/iOS.sdk"
+                target = f"{arch}-apple-ios16.0" + ("-simulator" if sdk == "iphonesimulator" else "")
+                flags = ["-target", target, "-isysroot", sdkroot, "-fPIC"]
+                env = {"CC": "clang", "CXX": "clang++",
+                       "CFLAGS": shlex.join(flags),
+                       "CXXFLAGS": shlex.join(flags + ["-stdlib=libc++"])}
+                with (patch.object(native, "WORK", self.root),
+                      patch.object(native, "ORDER", ("harfbuzz",)),
+                      patch.object(native, "slice_environment", return_value=(env, flags, sdkroot)),
+                      patch.object(native, "run") as run):
+                    native.build_slice(sdk, arch, 3)
+                setup = run.call_args_list[0].args[0]
+                for language in ("c", "cpp"):
+                    option = next(arg for arg in setup if str(arg).startswith(f"-D{language}_args="))
+                    effective_flags = shlex.split(option.split("=", 1)[1])
+                    self.assertEqual(effective_flags[:len(flags)], flags)
+                    self.assertIn("-Wno-cast-function-type-strict", effective_flags)
+                    if language == "cpp":
+                        self.assertIn("-stdlib=libc++", effective_flags)
 
 
 if __name__ == "__main__":

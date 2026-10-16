@@ -268,8 +268,9 @@ def build_slice(sdk, arch, jobs):
                 "fribidi": ["-Ddeprecated=false", "-Ddocs=false", "-Dtests=false"],
                 "harfbuzz": ["-Dglib=disabled", "-Dgobject=disabled", "-Dicu=disabled", "-Ddocs=disabled", "-Dtests=disabled",
                              "-Dcairo=disabled", "-Dchafa=disabled", "-Dintrospection=disabled", "-Dfreetype=enabled",
-                             "-Dc_args=-Wno-cast-function-type-strict",
-                             "-Dcpp_args=-Wno-cast-function-type-strict"],
+                             # Meson 的命令行选项替换 cross file 的同名数组，不能只传警告开关。
+                             f"-Dc_args={env['CFLAGS']} -Wno-cast-function-type-strict",
+                             f"-Dcpp_args={env['CXXFLAGS']} -Wno-cast-function-type-strict"],
             }[name]
             run(["meson", "setup", build, source, "--cross-file", cross, "--prefix", prefix,
                  "--libdir=lib", "--default-library=static", "--buildtype=release", "--wrap-mode=nodownload", *options], env=env)

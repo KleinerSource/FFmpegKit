@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.authors = { 'FFmpeg contributors' => 'ffmpeg-devel@ffmpeg.org' }
   # CocoaPods validates the license path extension. The bundled license
   # collection remains a resource; use the repository's GPL notice here.
-  s.license = { :type => 'GPL-3.0-or-later', :file => "#{native}LICENSE" }
+  s.license = { :type => 'GPL-3.0-or-later', :file => 'LICENSE' }
   s.source = { :git => 'https://github.com/KleinerSource/FFmpegKit.git', :tag => 'n8.1' }
   s.ios.deployment_target = '16.0'
   s.static_framework = true
