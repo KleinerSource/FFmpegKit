@@ -21,6 +21,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 COMPONENTS = ROOT.parent
 WORK = ROOT / "build/ios-native"
+RELEASE_TAG = "ios-native-latest"
 LOCK = json.loads((HERE / "sources.lock.json").read_text(encoding="utf-8"))
 SLICES = (("iphoneos", "arm64"), ("iphonesimulator", "arm64"), ("iphonesimulator", "x86_64"))
 ORDER = ("gmp", "nettle", "gnutls", "srt", "dav1d", "freetype", "fribidi", "harfbuzz", "libass", "FFmpeg")
@@ -225,7 +226,7 @@ def cache_key():
 
 
 def release_key():
-    """发布制品身份包含组件提交、构建器提交和 Apple 工具链。"""
+    """固定滚动标签，清单仍记录组件提交和 Apple 工具链指纹。"""
     ksplayer = git_revision(COMPONENTS / "KSPlayer")
     ffmpegkit = git_revision(ROOT)
     if not ksplayer or not ffmpegkit:
@@ -236,8 +237,7 @@ def release_key():
         "ksplayer_revision": ksplayer,
         "native_cache_key": cache_key(),
     }
-    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    identity["tag"] = "ios-native-" + hashlib.sha256(encoded).hexdigest()
+    identity["tag"] = RELEASE_TAG
     return identity
 
 

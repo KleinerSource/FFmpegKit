@@ -42,13 +42,17 @@ pod 'FFmpegKit', :path => "#{native}/FFmpegKit"
 pod 'Libass', :path => "#{native}/FFmpegKit"
 ```
 
-应用中旧的 FFmpegKit 6.1.4 或远端 KSPlayer 声明应由上述声明替换。`mobile_app` 与 `omm_app` 都按 `main` 最新组件源码解析版本，不在应用 Podfile 固定组件提交；`omm_app` 优先使用来源指纹匹配的 Release Pods。已有 `media_kit` 的应用需要额外检查最终链接、画中画、AirPlay 和播放器路由。
+应用中旧的 FFmpegKit 6.1.4 或远端 KSPlayer 声明应由上述声明替换。`omm_app` 直接下载 `ios-native-latest` Release Pods，使用该制品记录的组件版本，不再解析各源码仓库的 `main`。已有 `media_kit` 的应用需要额外检查最终链接、画中画、AirPlay 和播放器路由。
 
 ## 跨仓库复用 Release
 
-`FFmpegKit` 的 iOS Release 会把 FFmpegKit、Libass、KSPlayer、DisplayCriteria 的静态 XCFramework 和 KSPlayer Metal 源资源一起打包。Release 标签由 FFmpegKit、KSPlayer 提交及 Xcode/SDK/构建器指纹计算；清单记录精确源码版本、libav ABI 与文件校验值。`omm_app` 每次解析两个仓库 `main` 的最新提交，命中完全匹配的 Release 就下载并校验，不会在应用工作流内编译这些组件；没有匹配版本时，它才会在 `FFmpegKit` 仓库启动一次 Release 构建。
+`FFmpegKit` 的 iOS Release 会把 FFmpegKit、Libass、KSPlayer、DisplayCriteria 的静态 XCFramework 和 KSPlayer Metal 源资源一起打包。固定标签为 `ios-native-latest`，每次成功发布都会覆盖同名附件，并清理仓库中的其它 Release，始终只保留一个最新 Release；旧 Git 标签保留。发布工作流串行执行，构建、测试或上传失败时不会清理历史 Release。
 
-Actions cache 只留在制品生产工作流里，作为失败重跑和“只更新 KSPlayer”时的内部加速手段；应用跨仓库获取组件使用不可变 Release，不依赖 cache 的分支范围或保留周期。
+清单仍记录精确源码提交、构建指纹和 libav ABI。`omm_app` 直接下载固定标签下的归档、SHA-256 和清单，校验归档内外清单、组件来源和架构；不要求这些提交与远程 `main` 一致，也不会跨仓库触发构建。下载碰上覆盖发布时会重试；Release 缺失则明确提示先发布组件。公开制品不需要在 App 仓库配置 `COMPONENTS_TOKEN`。
+
+首次迁移时先发布 FFmpegKit 的 `ios-native-latest`，再运行 App 构建。以后修改 KSPlayer 后，也需要在 FFmpegKit 仓库重新运行组件发布工作流，才能将修复装入 App；仅修改源码不会改变已发布二进制。
+
+Actions cache 只留在制品生产工作流里，作为失败重跑和“只更新 KSPlayer”时的内部加速手段；FFmpeg 底层库的编译配方未变时可复用缓存，应用始终从 Release 获取完整制品。
 
 Swift Package 使用组件根目录的 `Package.swift`；KSPlayer 直接依赖同级 FFmpegKit，后者只引用本次构建的 XCFramework。Swift Package 固定采用默认输出目录，使用自定义输出时通过 CocoaPods 接入。
 
@@ -63,7 +67,7 @@ read -r simulator_id
 xcodebuild -scheme KSPlayer -destination "platform=iOS Simulator,id=$simulator_id" test CODE_SIGNING_ALLOWED=NO
 ```
 
-FFmpegKit 的 `iOS native component Release` 工作流在构建器相关文件更新到 `main` 时自动检查并发布制品，也支持手动触发；`omm_app` 找不到当前指纹的 Release 时会按该指纹触发构建。工作流保留 CocoaPods 编译检查、模拟器 XCTest 和真机架构构建。私有组件仓库需要配置可读取它们的 `COMPONENTS_TOKEN`。
+FFmpegKit 的 `iOS native component Release` 工作流在构建器相关文件更新到 `main` 时自动构建并更新最新 Release，也支持手动触发。工作流保留 CocoaPods 编译检查、模拟器 XCTest 和真机架构构建；只有需要读取私有组件源码时，才需在 FFmpegKit 仓库配置 `COMPONENTS_TOKEN`。
 
 Windows 已执行构建器和色彩参考测试；不能执行 Apple SDK 编译、XCTest、GPU 或 HDR 真机验收。色彩测试可直接针对组件工作树运行：
 

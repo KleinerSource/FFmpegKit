@@ -189,7 +189,7 @@ class SourceIntegrityTests(unittest.TestCase):
             changed = native.cache_key()
         self.assertNotEqual(changed, native.cache_key())
 
-    def test_release_key_changes_when_either_component_revision_changes(self):
+    def test_release_tag_stays_fixed_while_component_revisions_change(self):
         revisions = {
             self.root: "f" * 40,
             self.root / "KSPlayer": "a" * 40,
@@ -199,16 +199,15 @@ class SourceIntegrityTests(unittest.TestCase):
               patch.object(native, "git_revision", side_effect=lambda path: revisions.get(path)),
               patch.object(native, "cache_key", return_value="b" * 64)):
             first = native.release_key()
-            self.assertEqual(first["tag"], "ios-native-" + native.hashlib.sha256(
-                json.dumps({"schema": 1, "ffmpegkit_revision": "f" * 40,
-                            "ksplayer_revision": "a" * 40, "native_cache_key": "b" * 64},
-                           sort_keys=True, separators=(",", ":")).encode("utf-8")
-            ).hexdigest())
+            self.assertEqual(first["tag"], "ios-native-latest")
             revisions[self.root / "KSPlayer"] = "c" * 40
             second = native.release_key()
-            self.assertNotEqual(first["tag"], second["tag"])
+            self.assertEqual(first["tag"], second["tag"])
+            self.assertNotEqual(first["ksplayer_revision"], second["ksplayer_revision"])
             revisions[self.root] = "d" * 40
-            self.assertNotEqual(second["tag"], native.release_key()["tag"])
+            third = native.release_key()
+            self.assertEqual(second["tag"], third["tag"])
+            self.assertNotEqual(second["ffmpegkit_revision"], third["ffmpegkit_revision"])
 
     def test_cached_build_refreshes_player_sources_without_compiling(self):
         (self.root / "build-complete.json").write_text(

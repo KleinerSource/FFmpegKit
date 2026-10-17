@@ -31,10 +31,6 @@ on:
         description: 'KSPlayer 仓库提交；留空使用 main 最新提交'
         required: false
         type: string
-      expected_release_tag:
-        description: '调用方计算的预期制品指纹标签'
-        required: false
-        type: string
       publish_release:
         description: '构建成功后是否发布组件 Release'
         required: false
@@ -60,10 +56,6 @@ on:
         description: 'KSPlayer 仓库提交'
         required: false
         type: string
-      expected_release_tag:
-        description: '调用方计算的预期制品指纹标签'
-        required: false
-        type: string
       publish_release:
         description: '构建成功后是否发布组件 Release'
         required: false
@@ -72,6 +64,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: ios-native-release
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -127,24 +123,14 @@ jobs:
       - name: Compute native build cache key
         id: cache-key
         run: echo "key=$(python3 iOSNative/build.py cache-key)" >> "$GITHUB_OUTPUT"
-      - name: Resolve exact component Release fingerprint
-        id: release-check
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+      - name: Resolve component Release metadata
+        id: release-identity
         run: |
           identity="$(python3 iOSNative/build.py release-key)"
           tag="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["tag"])' <<< "$identity")"
-          [[ -z "$EXPECTED_RELEASE_TAG" || "$EXPECTED_RELEASE_TAG" == "$tag" ]]
           printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
-          if gh release view "$tag" --repo KleinerSource/FFmpegKit >/dev/null 2>&1; then
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/cache/restore@v4
         id: native-cache
-        if: steps.release-check.outputs.exists != 'true'
         with:
           path: |
             FFmpegKit/build/ios-native/pods/FFmpegKit/Frameworks
@@ -152,18 +138,15 @@ jobs:
           key: ios-native-${{ steps.cache-key.outputs.key }}
       - uses: actions/cache/restore@v4
         id: player-validation-cache
-        if: steps.release-check.outputs.exists != 'true'
         with:
           path: FFmpegKit/build/ios-native/KSPlayerValidation
           key: ios-player-validation-${{ runner.os }}-${{ steps.cache-key.outputs.key }}-${{ steps.revisions.outputs.FFmpeg }}-${{ steps.source-revisions.outputs.ksplayer }}-${{ hashFiles('FFmpegKit/iOSNative/build.py', 'FFmpegKit/iOSNative/distribute.py', 'FFmpegKit/iOSNative/sources.lock.json', 'FFmpegKit/FFmpegKit.podspec', 'FFmpegKit/Libass.podspec', 'FFmpegKit/Sources/FFmpegKit/**', 'FFmpegKit/LICENSE') }}
       - name: Export current source Pods
-        if: steps.release-check.outputs.exists != 'true'
         run: python3 iOSNative/build.py prepare
       - name: Build device and simulator native libraries
-        if: steps.release-check.outputs.exists != 'true'
         run: python3 iOSNative/build.py build --jobs 3
       - name: Save native library build cache
-        if: steps.release-check.outputs.exists != 'true' && steps.native-cache.outputs.cache-hit != 'true'
+        if: steps.native-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -171,54 +154,39 @@ jobs:
             FFmpegKit/build/ios-native/build-complete.json
           key: ios-native-${{ steps.cache-key.outputs.key }}
       - name: Verify color reference tests
-        if: steps.release-check.outputs.exists != 'true'
         run: python3 -m unittest discover -s iOSNative/tests -p test_color_reference.py -v
       - name: Compile latest component sources
-        if: steps.release-check.outputs.exists != 'true' && steps.player-validation-cache.outputs.cache-hit != 'true'
+        if: steps.player-validation-cache.outputs.cache-hit != 'true'
         working-directory: KSPlayer
         run: |
           device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if "iPhone" in d["name"]))')
           xcodebuild -scheme KSPlayer -destination "platform=iOS Simulator,id=$device" -resultBundlePath ../FFmpegKit/build/ios-native/KSPlayerTests.xcresult test CODE_SIGNING_ALLOWED=NO
           xcodebuild -scheme KSPlayer -configuration Release -destination 'generic/platform=iOS' build CODE_SIGNING_ALLOWED=NO
       - name: Build reusable static XCFrameworks and Podspecs
-        if: steps.release-check.outputs.exists != 'true'
         run: python3 iOSNative/distribute.py build
       - name: Validate source and binary CocoaPods
-        if: steps.release-check.outputs.exists != 'true'
         run: |
           pod lib lint build/ios-native/pods/KSPlayer/KSPlayer.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs='build/ios-native/pods/*/*.podspec'
           pod lib lint build/ios-native/distribution/pods/KSPlayer/KSPlayer.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs='build/ios-native/distribution/pods/*/*.podspec'
       - name: Record validated component sources
-        if: steps.release-check.outputs.exists != 'true' && steps.player-validation-cache.outputs.cache-hit != 'true'
+        if: steps.player-validation-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p build/ios-native/KSPlayerValidation
           printf 'ffmpeg=%s\nksplayer=%s\nffmpegkit=%s\nrelease=%s\n' \
             '${{ steps.revisions.outputs.FFmpeg }}' \
             '${{ steps.source-revisions.outputs.ksplayer }}' \
             '${{ steps.source-revisions.outputs.ffmpegkit }}' \
-            '${{ steps.release-check.outputs.tag }}' > build/ios-native/KSPlayerValidation/validated.txt
+            '${{ steps.release-identity.outputs.tag }}' > build/ios-native/KSPlayerValidation/validated.txt
       - uses: actions/cache/save@v4
-        if: steps.release-check.outputs.exists != 'true' && steps.player-validation-cache.outputs.cache-hit != 'true'
+        if: steps.player-validation-cache.outputs.cache-hit != 'true'
         with:
           path: FFmpegKit/build/ios-native/KSPlayerValidation
           key: ios-player-validation-${{ runner.os }}-${{ steps.cache-key.outputs.key }}-${{ steps.revisions.outputs.FFmpeg }}-${{ steps.source-revisions.outputs.ksplayer }}-${{ hashFiles('FFmpegKit/iOSNative/build.py', 'FFmpegKit/iOSNative/distribute.py', 'FFmpegKit/iOSNative/sources.lock.json', 'FFmpegKit/FFmpegKit.podspec', 'FFmpegKit/Libass.podspec', 'FFmpegKit/Sources/FFmpegKit/**', 'FFmpegKit/LICENSE') }}
-      - name: Publish immutable component Release
-        if: steps.release-check.outputs.exists != 'true' && (github.event_name == 'push' || inputs.publish_release == true)
+      - name: Update latest component Release and remove older Releases
+        if: github.event_name == 'push' || inputs.publish_release == true
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release-check.outputs.tag }}
-          RELEASE_TARGET: ${{ steps.source-revisions.outputs.ffmpegkit }}
-        run: |
-          [[ -f build/ios-native/ios-native-pods.zip ]]
-          [[ -f build/ios-native/ios-native-pods.zip.sha256 ]]
-          [[ -f build/ios-native/distribution/release-manifest.json ]]
-          gh release create "$RELEASE_TAG" \
-            build/ios-native/ios-native-pods.zip \
-            build/ios-native/ios-native-pods.zip.sha256 \
-            build/ios-native/distribution/release-manifest.json \
-            --repo KleinerSource/FFmpegKit --target "$RELEASE_TARGET" \
-            --title "iOS native components ${RELEASE_TAG#ios-native-}" \
-            --notes "Source-matched XCFrameworks. See release-manifest.json for exact component revisions, FFmpeg ABI versions, and build fingerprint."
+        run: python3 iOSNative/publish_release.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
