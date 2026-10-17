@@ -18,17 +18,8 @@ on:
         required: false
         default: KleinerSource/FFmpeg
         type: string
-      ksplayer_repository:
-        description: 'KSPlayer 仓库，格式 owner/repo'
-        required: false
-        default: KleinerSource/KSPlayer
-        type: string
       ffmpegkit_revision:
         description: 'FFmpegKit 仓库提交；留空使用触发该工作流的提交'
-        required: false
-        type: string
-      ksplayer_revision:
-        description: 'KSPlayer 仓库提交；留空使用 main 最新提交'
         required: false
         type: string
       publish_release:
@@ -43,17 +34,8 @@ on:
         required: false
         default: KleinerSource/FFmpeg
         type: string
-      ksplayer_repository:
-        description: 'KSPlayer 仓库，格式 owner/repo'
-        required: false
-        default: KleinerSource/KSPlayer
-        type: string
       ffmpegkit_revision:
         description: 'FFmpegKit 仓库提交'
-        required: false
-        type: string
-      ksplayer_revision:
-        description: 'KSPlayer 仓库提交'
         required: false
         type: string
       publish_release:
@@ -85,7 +67,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Read FFmpeg revision and KSPlayer branch
+      - name: Read FFmpeg revision
         id: revisions
         run: |
           python3 - <<'PY'
@@ -93,7 +75,6 @@ jobs:
           lock = json.load(open('iOSNative/sources.lock.json', encoding='utf-8'))
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               print(f'FFmpeg={lock["sources"]["FFmpeg"]["commit"]}', file=output)
-              print(f'KSPlayer_BRANCH={lock["sources"]["KSPlayer"].get("branch", "main")}', file=output)
           PY
       - uses: actions/checkout@v4
         with:
@@ -101,19 +82,6 @@ jobs:
           ref: ${{ steps.revisions.outputs.FFmpeg }}
           token: ${{ secrets.COMPONENTS_TOKEN || github.token }}
           path: FFmpeg
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.ksplayer_repository || 'KleinerSource/KSPlayer' }}
-          ref: ${{ inputs.ksplayer_revision || steps.revisions.outputs.KSPlayer_BRANCH }}
-          token: ${{ secrets.COMPONENTS_TOKEN || github.token }}
-          path: KSPlayer
-      - name: Resolve checked out source revisions
-        id: source-revisions
-        run: |
-          ksplayer="$(git -C "$GITHUB_WORKSPACE/KSPlayer" rev-parse HEAD)"
-          ffmpegkit="$(git -C "$GITHUB_WORKSPACE/FFmpegKit" rev-parse HEAD)"
-          [[ "$ksplayer" =~ ^[0-9a-f]{40}$ && "$ffmpegkit" =~ ^[0-9a-f]{40}$ ]]
-          printf 'ksplayer=%s\nffmpegkit=%s\n' "$ksplayer" "$ffmpegkit" >> "$GITHUB_OUTPUT"
       - name: Install native toolchain
         run: |
           brew install autoconf automake libtool pkg-config cmake meson ninja nasm texinfo cocoapods
@@ -123,12 +91,6 @@ jobs:
       - name: Compute native build cache key
         id: cache-key
         run: echo "key=$(python3 iOSNative/build.py cache-key)" >> "$GITHUB_OUTPUT"
-      - name: Resolve component Release metadata
-        id: release-identity
-        run: |
-          identity="$(python3 iOSNative/build.py release-key)"
-          tag="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["tag"])' <<< "$identity")"
-          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: native-cache
         with:
@@ -136,11 +98,6 @@ jobs:
             FFmpegKit/build/ios-native/pods/FFmpegKit/Frameworks
             FFmpegKit/build/ios-native/build-complete.json
           key: ios-native-${{ steps.cache-key.outputs.key }}
-      - uses: actions/cache/restore@v4
-        id: player-validation-cache
-        with:
-          path: FFmpegKit/build/ios-native/KSPlayerValidation
-          key: ios-player-validation-${{ runner.os }}-${{ steps.cache-key.outputs.key }}-${{ steps.revisions.outputs.FFmpeg }}-${{ steps.source-revisions.outputs.ksplayer }}-${{ hashFiles('FFmpegKit/iOSNative/build.py', 'FFmpegKit/iOSNative/distribute.py', 'FFmpegKit/iOSNative/sources.lock.json', 'FFmpegKit/FFmpegKit.podspec', 'FFmpegKit/Libass.podspec', 'FFmpegKit/Sources/FFmpegKit/**', 'FFmpegKit/LICENSE') }}
       - name: Export current source Pods
         run: python3 iOSNative/build.py prepare
       - name: Build device and simulator native libraries
@@ -153,35 +110,12 @@ jobs:
             FFmpegKit/build/ios-native/pods/FFmpegKit/Frameworks
             FFmpegKit/build/ios-native/build-complete.json
           key: ios-native-${{ steps.cache-key.outputs.key }}
-      - name: Verify color reference tests
-        run: python3 -m unittest discover -s iOSNative/tests -p test_color_reference.py -v
-      - name: Compile latest component sources
-        if: steps.player-validation-cache.outputs.cache-hit != 'true'
-        working-directory: KSPlayer
-        run: |
-          device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if "iPhone" in d["name"]))')
-          xcodebuild -scheme KSPlayer -destination "platform=iOS Simulator,id=$device" -resultBundlePath ../FFmpegKit/build/ios-native/KSPlayerTests.xcresult test CODE_SIGNING_ALLOWED=NO
-          xcodebuild -scheme KSPlayer -configuration Release -destination 'generic/platform=iOS' build CODE_SIGNING_ALLOWED=NO
       - name: Build reusable static XCFrameworks and Podspecs
         run: python3 iOSNative/distribute.py build
       - name: Validate source and binary CocoaPods
         run: |
-          pod lib lint build/ios-native/pods/KSPlayer/KSPlayer.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs='build/ios-native/pods/*/*.podspec'
-          pod lib lint build/ios-native/distribution/pods/KSPlayer/KSPlayer.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs='build/ios-native/distribution/pods/*/*.podspec'
-      - name: Record validated component sources
-        if: steps.player-validation-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p build/ios-native/KSPlayerValidation
-          printf 'ffmpeg=%s\nksplayer=%s\nffmpegkit=%s\nrelease=%s\n' \
-            '${{ steps.revisions.outputs.FFmpeg }}' \
-            '${{ steps.source-revisions.outputs.ksplayer }}' \
-            '${{ steps.source-revisions.outputs.ffmpegkit }}' \
-            '${{ steps.release-identity.outputs.tag }}' > build/ios-native/KSPlayerValidation/validated.txt
-      - uses: actions/cache/save@v4
-        if: steps.player-validation-cache.outputs.cache-hit != 'true'
-        with:
-          path: FFmpegKit/build/ios-native/KSPlayerValidation
-          key: ios-player-validation-${{ runner.os }}-${{ steps.cache-key.outputs.key }}-${{ steps.revisions.outputs.FFmpeg }}-${{ steps.source-revisions.outputs.ksplayer }}-${{ hashFiles('FFmpegKit/iOSNative/build.py', 'FFmpegKit/iOSNative/distribute.py', 'FFmpegKit/iOSNative/sources.lock.json', 'FFmpegKit/FFmpegKit.podspec', 'FFmpegKit/Libass.podspec', 'FFmpegKit/Sources/FFmpegKit/**', 'FFmpegKit/LICENSE') }}
+          pod lib lint build/ios-native/pods/FFmpegKit/FFmpegKit.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs='build/ios-native/pods/*/*.podspec'
+          pod lib lint build/ios-native/distribution/pods/FFmpegKit/FFmpegKit.podspec --platforms=ios --allow-warnings --skip-tests --include-podspecs='build/ios-native/distribution/pods/*/*.podspec'
       - name: Update latest component Release and remove older Releases
         if: github.event_name == 'push' || inputs.publish_release == true
         env:
@@ -195,7 +129,6 @@ jobs:
             FFmpegKit/build/ios-native/pods/FFmpegKit/native-versions.json
             FFmpegKit/build/ios-native/pods/FFmpegKit/Licenses
             FFmpegKit/build/ios-native/pods/FFmpegKit/Frameworks
-            FFmpegKit/build/ios-native/KSPlayerTests.xcresult
             FFmpegKit/build/ios-native/ios-native-pods.zip
             FFmpegKit/build/ios-native/ios-native-pods.zip.sha256
             FFmpegKit/build/ios-native/distribution/release-manifest.json

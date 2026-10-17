@@ -81,16 +81,6 @@ def fetch(name):
     destination = WORK / name
     if "git" in spec:
         local = COMPONENTS / name
-        if name == "KSPlayer":
-            # CI 传入已解析的最新检出；本地仓库则使用调用者当前分支 HEAD。
-            if (local / ".git").exists():
-                return local
-            branch = spec.get("branch", "main")
-            if not destination.exists():
-                run(["git", "clone", "--filter=blob:none", "--no-checkout", spec["git"], destination])
-            run(["git", "-C", destination, "fetch", "--quiet", "origin", branch])
-            run(["git", "-C", destination, "checkout", "--quiet", "--detach", "FETCH_HEAD"])
-            return destination
         if (local / ".git").exists():
             destination = local
         # 其余 Git 源继续由 sources.lock.json 固定，尤其保持 FFmpeg n8.1 ABI。
@@ -132,7 +122,7 @@ def fetch(name):
 def export_git(name, destination):
     source = fetch(name)
     archive = WORK / (name + "-source.tar")
-    revision = "HEAD" if name == "KSPlayer" else LOCK["sources"][name]["commit"]
+    revision = LOCK["sources"][name]["commit"]
     run(["git", "-C", source, "archive", "--format=tar", "-o", archive, revision])
     if destination.exists():
         shutil.rmtree(destination)
@@ -145,14 +135,9 @@ def prepare():
     WORK.mkdir(parents=True, exist_ok=True)
     resolved_sources = {}
     for name in LOCK["sources"]:
-        source = fetch(name)
+        fetch(name)
         spec = LOCK["sources"][name]
-        if name == "KSPlayer":
-            resolved_sources[name] = run(
-                ["git", "-C", source, "rev-parse", "HEAD"], capture=True
-            ).stdout.strip()
-        else:
-            resolved_sources[name] = spec.get("commit", spec.get("sha256"))
+        resolved_sources[name] = spec.get("commit", spec.get("sha256"))
     for name in ("FFmpeg", "dav1d", "srt"):
         export_git(name, WORK / "sources" / name)
     # version.sh 会向上发现应用仓库；显式版本文件保证运行时不混入应用 Git 版本。
@@ -166,7 +151,6 @@ def prepare():
             raise RuntimeError(f"{name} 版本不匹配: {actual}，预期 {expected}")
         versions[name] = actual
     pods = WORK / "pods"
-    export_git("KSPlayer", pods / "KSPlayer")
     # helper 直接来自当前 FFmpegKit 源码；旧的预编译二进制不进入 Pods。
     kit = pods / "FFmpegKit"
     helpers = kit / "Sources/FFmpegKit"
@@ -179,7 +163,7 @@ def prepare():
     if licenses.exists():
         shutil.rmtree(licenses)
     for name in LOCK["sources"]:
-        source = pods / name if name == "KSPlayer" else (WORK / "sources" / name if name in ("FFmpeg", "dav1d", "srt") else WORK / name)
+        source = WORK / "sources" / name if name in ("FFmpeg", "dav1d", "srt") else WORK / name
         target = licenses / name
         target.mkdir(parents=True)
         for pattern in ("COPYING*", "LICENSE*", "LICENCE*", "docs/FTL.TXT", "docs/GPLv2.TXT"):
@@ -195,8 +179,6 @@ def prepare():
         "libav_versions": versions,
         "sources": resolved_sources,
         "components": {
-            "KSPlayer": resolved_sources["KSPlayer"],
-            "DisplayCriteria": resolved_sources["KSPlayer"],
             "FFmpegKit": ffmpegkit_revision,
             "Libass": ffmpegkit_revision,
         },
@@ -207,9 +189,8 @@ def prepare():
 
 def cache_key():
     digest = hashlib.sha256()
-    # 原生库可复用键只覆盖编译配方；播放器、helper、Podspec 和许可证由 prepare 刷新。
-    native_lock = {**LOCK, "sources": {name: spec for name, spec in LOCK["sources"].items() if name != "KSPlayer"}}
-    digest.update(json.dumps(native_lock, sort_keys=True).encode("utf-8"))
+    # 原生库可复用键只覆盖编译配方；helper、Podspec 和许可证由 prepare 刷新。
+    digest.update(json.dumps(LOCK, sort_keys=True).encode("utf-8"))
     digest.update(json.dumps({"slices": SLICES, "order": ORDER, "libraries": LIBRARIES}, sort_keys=True).encode("utf-8"))
     for function in (run, slice_environment, meson_cross, build_slice, framework):
         digest.update(inspect.getsource(function).encode("utf-8"))
@@ -227,14 +208,12 @@ def cache_key():
 
 def release_key():
     """固定滚动标签，清单仍记录组件提交和 Apple 工具链指纹。"""
-    ksplayer = git_revision(COMPONENTS / "KSPlayer")
     ffmpegkit = git_revision(ROOT)
-    if not ksplayer or not ffmpegkit:
-        raise RuntimeError("Release 指纹需要已检出的 FFmpegKit 和 KSPlayer Git 提交")
+    if not ffmpegkit:
+        raise RuntimeError("Release 指纹需要已检出的 FFmpegKit Git 提交")
     identity = {
-        "schema": 1,
+        "schema": 2,
         "ffmpegkit_revision": ffmpegkit,
-        "ksplayer_revision": ksplayer,
         "native_cache_key": cache_key(),
     }
     identity["tag"] = RELEASE_TAG
@@ -424,7 +403,7 @@ def build(jobs):
     stamp = WORK / "build-complete.json"
     if stamp.exists() and json.loads(stamp.read_text())["cache_key"] == key:
         expected = WORK / "pods/FFmpegKit/Frameworks"
-        pod_files = ("KSPlayer/KSPlayer.podspec", "KSPlayer/DisplayCriteria.podspec", "FFmpegKit/FFmpegKit.podspec",
+        pod_files = ("FFmpegKit/FFmpegKit.podspec",
                      "FFmpegKit/Libass.podspec", "FFmpegKit/Sources/FFmpegKit/include/avformat_shim.h",
                      "FFmpegKit/native-versions.json")
         if (all((expected / (module + ".xcframework/Info.plist")).is_file() for module in LIBRARIES)
@@ -451,7 +430,7 @@ def main():
     parser.add_argument("command", choices=("prepare", "build", "cache-key", "release-key", "plan"))
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     parser.add_argument("--components-dir", type=Path, default=COMPONENTS,
-                        help="独立 KSPlayer/FFmpeg 源码仓库的父目录")
+                        help="独立 FFmpeg 源码仓库的父目录")
     parser.add_argument("--output", type=Path, default=WORK, help="构建输出目录")
     args = parser.parse_args()
     WORK = args.output.resolve()

@@ -85,30 +85,28 @@ class SourceIntegrityTests(unittest.TestCase):
                     native.export_git("library", output)
         self.assertEqual((source / "value.c").read_text(encoding="utf-8"), "dirty\n")
 
-    def test_exports_current_ksplayer_head_instead_of_a_pinned_commit(self):
-        components = self.root / "components"
-        source = components / "KSPlayer"
-        source.mkdir(parents=True)
-        subprocess.run(["git", "init", "--quiet", str(source)], check=True)
-        subprocess.run(["git", "-C", str(source), "config", "user.name", "Test"], check=True)
-        subprocess.run(["git", "-C", str(source), "config", "user.email", "test@example.invalid"], check=True)
-        value = source / "value.swift"
-        value.write_text("old\n", encoding="utf-8")
-        subprocess.run(["git", "-C", str(source), "add", "value.swift"], check=True)
-        subprocess.run(["git", "-C", str(source), "commit", "--quiet", "-m", "old"], check=True)
-        value.write_text("latest\n", encoding="utf-8")
-        subprocess.run(["git", "-C", str(source), "add", "value.swift"], check=True)
-        subprocess.run(["git", "-C", str(source), "commit", "--quiet", "-m", "latest"], check=True)
-        output = self.root / "exported-ksplayer"
-        lock = {"sources": {"KSPlayer": {
-            "git": "https://invalid.test/KSPlayer.git", "branch": "main"
-        }}}
+    def test_prepare_exports_only_native_pods_without_a_player_checkout(self):
+        def export(name, destination):
+            destination.mkdir(parents=True)
+            if name == "FFmpeg":
+                for library, version in native.LOCK["libav_versions"].items():
+                    headers = destination / library
+                    headers.mkdir()
+                    values = zip(("MAJOR", "MINOR", "MICRO"), version.split("."))
+                    (headers / "version.h").write_text("\n".join(
+                        f"#define {library.upper()}_VERSION_{part} {value}" for part, value in values
+                    ), encoding="utf-8")
 
-        with (patch.object(native, "COMPONENTS", components),
-              patch.object(native, "WORK", self.root), patch.object(native, "LOCK", lock)):
-            native.export_git("KSPlayer", output)
-
-        self.assertEqual((output / "value.swift").read_text(encoding="utf-8"), "latest\n")
+        with (patch.object(native, "WORK", self.root),
+              patch.object(native, "fetch", return_value=self.root) as fetch,
+              patch.object(native, "export_git", side_effect=export),
+              patch.object(native, "git_revision", return_value="f" * 40)):
+            pods = native.prepare()
+        self.assertNotIn("KSPlayer", [call.args[0] for call in fetch.call_args_list])
+        self.assertFalse((pods / "KSPlayer").exists())
+        self.assertTrue((pods / "FFmpegKit/Sources/FFmpegKit/include/avformat_shim.h").is_file())
+        metadata = json.loads((pods / "FFmpegKit/native-versions.json").read_text(encoding="utf-8"))
+        self.assertEqual(metadata["components"], {"FFmpegKit": "f" * 40, "Libass": "f" * 40})
 
     def test_slice_environment_separates_host_and_ios_compilers(self):
         class Result:
@@ -165,7 +163,7 @@ class SourceIntegrityTests(unittest.TestCase):
                     if language == "cpp":
                         self.assertIn("-stdlib=libc++", effective_flags)
 
-    def test_native_cache_reuses_libraries_for_player_only_changes(self):
+    def test_native_cache_reuses_libraries_for_helper_and_podspec_changes(self):
         lock = deepcopy(native.LOCK)
         with (patch.object(native, "LOCK", lock),
               patch.object(native, "ROOT", self.root),
@@ -174,8 +172,6 @@ class SourceIntegrityTests(unittest.TestCase):
             (self.root / "Sources/FFmpegKit").mkdir(parents=True)
             (self.root / "Sources/FFmpegKit/helper.c").write_text("new helper", encoding="utf-8")
             (self.root / "FFmpegKit.podspec").write_text("new podspec", encoding="utf-8")
-            self.assertEqual(native.cache_key(), original)
-            lock["sources"]["KSPlayer"]["branch"] = "develop"
             self.assertEqual(native.cache_key(), original)
             lock["sources"]["FFmpeg"]["commit"] = "0" * 40
             self.assertNotEqual(native.cache_key(), original)
@@ -189,27 +185,17 @@ class SourceIntegrityTests(unittest.TestCase):
             changed = native.cache_key()
         self.assertNotEqual(changed, native.cache_key())
 
-    def test_release_tag_stays_fixed_while_component_revisions_change(self):
-        revisions = {
-            self.root: "f" * 40,
-            self.root / "KSPlayer": "a" * 40,
-        }
+    def test_release_identity_does_not_require_a_player_checkout(self):
         with (patch.object(native, "ROOT", self.root),
-              patch.object(native, "COMPONENTS", self.root),
-              patch.object(native, "git_revision", side_effect=lambda path: revisions.get(path)),
+              patch.object(native, "git_revision", return_value="f" * 40) as revision,
               patch.object(native, "cache_key", return_value="b" * 64)):
-            first = native.release_key()
-            self.assertEqual(first["tag"], "ios-native-latest")
-            revisions[self.root / "KSPlayer"] = "c" * 40
-            second = native.release_key()
-            self.assertEqual(first["tag"], second["tag"])
-            self.assertNotEqual(first["ksplayer_revision"], second["ksplayer_revision"])
-            revisions[self.root] = "d" * 40
-            third = native.release_key()
-            self.assertEqual(second["tag"], third["tag"])
-            self.assertNotEqual(second["ffmpegkit_revision"], third["ffmpegkit_revision"])
+            identity = native.release_key()
+        revision.assert_called_once_with(self.root)
+        self.assertEqual(identity["tag"], "ios-native-latest")
+        self.assertEqual(identity["ffmpegkit_revision"], "f" * 40)
+        self.assertNotIn("ksplayer_revision", identity)
 
-    def test_cached_build_refreshes_player_sources_without_compiling(self):
+    def test_cached_build_refreshes_native_helpers_without_compiling(self):
         (self.root / "build-complete.json").write_text(
             json.dumps({"cache_key": "fixture"}), encoding="utf-8"
         )
@@ -219,8 +205,7 @@ class SourceIntegrityTests(unittest.TestCase):
             info.touch()
 
         def prepare():
-            for file in ("KSPlayer/KSPlayer.podspec", "KSPlayer/DisplayCriteria.podspec",
-                         "FFmpegKit/FFmpegKit.podspec", "FFmpegKit/Libass.podspec",
+            for file in ("FFmpegKit/FFmpegKit.podspec", "FFmpegKit/Libass.podspec",
                          "FFmpegKit/Sources/FFmpegKit/include/avformat_shim.h",
                          "FFmpegKit/native-versions.json"):
                 path = self.root / "pods" / file
@@ -235,7 +220,7 @@ class SourceIntegrityTests(unittest.TestCase):
               patch.object(native, "build_slice") as compile_slice):
             native.build(3)
         compile_slice.assert_not_called()
-        self.assertEqual((self.root / "pods/KSPlayer/KSPlayer.podspec").read_text(encoding="utf-8"),
+        self.assertEqual((self.root / "pods/FFmpegKit/FFmpegKit.podspec").read_text(encoding="utf-8"),
                          "current source")
 
     def test_modulemaps_exclude_headers_for_disabled_platform_codecs(self):

@@ -3,10 +3,6 @@
   "ios_minimum": "16.0",
   "ffmpeg_version": "n8.1",
   "sources": {
-    "KSPlayer": {
-      "git": "https://github.com/KleinerSource/KSPlayer.git",
-      "branch": "main"
-    },
     "FFmpeg": {
       "git": "https://github.com/KleinerSource/FFmpeg.git",
       "commit": "904720ead5e74e4ef4ba1b79b64a2bd90fa6ab0b",

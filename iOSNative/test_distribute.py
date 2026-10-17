@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 
@@ -21,21 +22,9 @@ class StaticFrameworkTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 
-    def test_wraps_swift_static_library_with_module_interface(self):
-        library = self.root / "libKSPlayer.a"
-        library.write_bytes(b"archive")
-        module = self.root / "KSPlayer.swiftmodule"
-        module.mkdir()
-        (module / "arm64-apple-ios.swiftinterface").write_text("public struct Player {}\n", encoding="utf-8")
-        with patch.object(distribute.native, "WORK", self.root):
-            framework = distribute.static_framework("KSPlayer", library, module, "iphoneos")
-        self.assertEqual((framework / "KSPlayer").read_bytes(), b"archive")
-        self.assertTrue((framework / "Modules/KSPlayer.swiftmodule/arm64-apple-ios.swiftinterface").is_file())
-        with (framework / "Info.plist").open("rb") as source:
-            self.assertEqual(plistlib.load(source)["MachOType"], "staticlib")
 
     def test_source_and_prebuilt_pods_force_load_ffmpeg_with_media_kit(self):
-        for name in ("KSPlayer", "FFmpegKit"):
+        for name in ("FFmpegKit",):
             (self.root / name).mkdir()
         distribute.podspecs(self.root)
         specs = [distribute.native.ROOT / "FFmpegKit.podspec",
@@ -111,7 +100,7 @@ load ARGV.first
         header = self.root / "AVDisplayCriteriaKS.h"
         header.write_text("@interface AVDisplayCriteria (KSPlayer)\n@end\n", encoding="utf-8")
         with patch.object(distribute.native, "WORK", self.root):
-            framework = distribute.static_framework("DisplayCriteria", library, None,
+            framework = distribute.static_framework("DisplayCriteria", library,
                                                     "iphonesimulator", [header])
         modulemap = (framework / "Modules/module.modulemap").read_text(encoding="utf-8")
         self.assertIn('framework module DisplayCriteria', modulemap)
@@ -128,7 +117,7 @@ load ARGV.first
             header.write_text("", encoding="utf-8")
             headers.append(header)
         with patch.object(distribute.native, "WORK", self.root):
-            framework = distribute.static_framework("FFmpegKit", library, None,
+            framework = distribute.static_framework("FFmpegKit", library,
                                                     "iphoneos", headers)
         modulemap = (framework / "Modules/module.modulemap").read_text(encoding="utf-8")
         self.assertIn('umbrella header "FFmpegKit.h"', modulemap)
@@ -151,17 +140,10 @@ load ARGV.first
         self.assertEqual(library.read_bytes(), b"archive")
         run.assert_called_once_with(("libtool", "-static", "-o", library, object_file), self.root)
 
-    def test_generates_static_packages_from_current_component_sources(self):
+    def test_generates_native_package_without_player_sources(self):
         ffmpegkit = self.root / "FFmpegKit"
         (ffmpegkit / "Sources/FFmpegKit/include").mkdir(parents=True)
         (ffmpegkit / "Sources/FFmpegKit/include/avcodec_shim.h").write_text("", encoding="utf-8")
-        components = self.root / "components"
-        player_sources = components / "KSPlayer/Sources"
-        (player_sources / "KSPlayer/Metal").mkdir(parents=True)
-        (player_sources / "KSPlayer/Metal/Shaders.metal").write_text("", encoding="utf-8")
-        (player_sources / "DisplayCriteria/include").mkdir(parents=True)
-        (player_sources / "DisplayCriteria/include/AVDisplayCriteriaKS.h").write_text("", encoding="utf-8")
-        (player_sources / "DisplayCriteria/DisplayCriteria.m").write_text("", encoding="utf-8")
         native_work = self.root / "build/ios-native"
         framework_root = native_work / "pods/FFmpegKit/Frameworks"
         for name in distribute.CLANG_MODULES:
@@ -170,22 +152,43 @@ load ARGV.first
             (path / "Info.plist").write_text("fixture", encoding="utf-8")
 
         with (patch.object(distribute.native, "ROOT", ffmpegkit),
-              patch.object(distribute.native, "COMPONENTS", components),
               patch.object(distribute.native, "WORK", native_work)):
             package_root = distribute.package_sources()
 
         native_manifest = (package_root / "packages/Native/Package.swift").read_text(encoding="utf-8")
-        display_manifest = (package_root / "packages/DisplayCriteria/Package.swift").read_text(encoding="utf-8")
-        player_manifest = (package_root / "packages/KSPlayer/Package.swift").read_text(encoding="utf-8")
         self.assertIn('name: "FFmpegKit"', native_manifest)
         self.assertIn('.library(name: "FFmpegKit", type: .static', native_manifest)
-        self.assertIn('.library(name: "DisplayCriteria", type: .static', display_manifest)
-        self.assertIn('.library(name: "KSPlayer", type: .static', player_manifest)
-        self.assertLess(player_manifest.index("products:"), player_manifest.index("dependencies:"))
-        self.assertIn('.package(name: "FFmpegKit", path: "../Native")', player_manifest)
-        self.assertIn('.process("Metal/Shaders.metal")', player_manifest)
+        self.assertEqual([path.name for path in (package_root / "packages").iterdir()], ["Native"])
         for name in distribute.CLANG_MODULES:
             self.assertIn(f'Frameworks/{name}.xcframework', native_manifest)
+
+    def test_distribution_contains_only_native_pods_and_matching_metadata(self):
+        kit = self.root / "pods/FFmpegKit"
+        (kit / "Licenses/libass").mkdir(parents=True)
+        (kit / "Licenses/libass/COPYING").write_text("license", encoding="utf-8")
+        (kit / "LICENSE").write_text("license", encoding="utf-8")
+        for name in distribute.native.LIBRARIES:
+            framework = kit / "Frameworks" / f"{name}.xcframework"
+            framework.mkdir(parents=True)
+            (framework / "Info.plist").write_bytes(plistlib.dumps({"fixture": name}))
+        wrapper = self.root / "FFmpegKit.xcframework"
+        wrapper.mkdir()
+        (wrapper / "Info.plist").write_bytes(plistlib.dumps({"fixture": "FFmpegKit"}))
+        sources = {"FFmpegKit": "f" * 40, "Libass": "f" * 40}
+        (kit / "native-versions.json").write_text(json.dumps({
+            "components": sources, "ffmpeg_version": "n8.1", "libav_versions": {"libavcodec": "62.28.100"},
+        }), encoding="utf-8")
+        identity = {"tag": "ios-native-latest", "ffmpegkit_revision": "f" * 40, "native_cache_key": "b" * 64}
+        with (patch.object(distribute.native, "WORK", self.root),
+              patch.object(distribute.native, "release_key", return_value=identity)):
+            distribute.assemble({"FFmpegKit": wrapper})
+        with zipfile.ZipFile(self.root / "ios-native-pods.zip") as archive:
+            self.assertTrue(any(name.startswith("pods/FFmpegKit/") for name in archive.namelist()))
+            self.assertFalse(any(name.startswith("pods/KSPlayer/") for name in archive.namelist()))
+            manifest = json.loads(archive.read("release-manifest.json"))
+            self.assertEqual(manifest["frameworks"], ["FFmpegKit", "Libass"])
+            self.assertEqual(manifest["sources"], sources)
+            self.assertEqual(manifest["schema"], 2)
 
 
 if __name__ == "__main__":
