@@ -163,7 +163,8 @@ def podspecs(pods):
     ffmpeg = pods / "FFmpegKit"
     (ffmpeg / "FFmpegKit.podspec").write_text('''frameworks = File.expand_path('Frameworks', __dir__)
 force_load = lambda do |slice|
-  %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
+  # Keep dav1d's public struct ABI with the FFmpeg build, not media_kit's dylib.
+  %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale libdav1d].map { |name|
     '"-Wl,-force_load,' + frameworks + '/' + name + '.xcframework/' + slice + '/' + name + '.framework/' + name + '"'
   }.join(' ')
 end

@@ -40,7 +40,7 @@ class StaticFrameworkTests(unittest.TestCase):
                 self.assertNotIn("PODS_XCFRAMEWORKS_BUILD_DIR", text)
                 self.assertIn("force_load.call('ios-arm64')", text)
                 self.assertIn("force_load.call('ios-arm64_x86_64-simulator')", text)
-                self.assertIn("%w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale]", text)
+                self.assertIn("%w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale libdav1d]", text)
 
     @unittest.skipUnless(shutil.which("ruby"), "Ruby is required to evaluate CocoaPods settings")
     def test_force_load_flags_resolve_to_existing_device_and_simulator_archives(self):
@@ -75,7 +75,7 @@ load ARGV.first
         source.mkdir()
         shutil.copyfile(distribute.native.ROOT / "FFmpegKit.podspec", source / "FFmpegKit.podspec")
         names = ("Libavcodec", "Libavdevice", "Libavfilter", "Libavformat",
-                 "Libavutil", "Libswresample", "Libswscale")
+                 "Libavutil", "Libswresample", "Libswscale", "libdav1d")
         slices = {"iphoneos": "ios-arm64", "iphonesimulator": "ios-arm64_x86_64-simulator"}
         for root in (source, pods / "FFmpegKit"):
             for name in names:

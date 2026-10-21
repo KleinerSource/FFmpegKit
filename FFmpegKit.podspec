@@ -1,7 +1,9 @@
 native = File.directory?(File.join(__dir__, 'Frameworks')) ? '' : 'build/ios-native/pods/FFmpegKit/'
 frameworks = File.expand_path("#{native}Frameworks", __dir__)
 force_load = lambda do |slice|
-  %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale].map { |name|
+  # dav1d 7 has smaller public structs than media_kit's dav1d 6. Keep its
+  # implementation with the FFmpeg headers it was compiled against.
+  %w[Libavcodec Libavdevice Libavfilter Libavformat Libavutil Libswresample Libswscale libdav1d].map { |name|
     "\"-Wl,-force_load,#{frameworks}/#{name}.xcframework/#{slice}/#{name}.framework/#{name}\""
   }.join(' ')
 end
