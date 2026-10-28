@@ -47,7 +47,7 @@ def publish(directory):
     else:
         gh("release", "create", tag, *assets, "--target", target, *metadata)
     for old_tag in tags:
-        if old_tag != tag:
+        if old_tag != tag and not old_tag.startswith("libmpv-"):
             gh("release", "delete", old_tag, "--repo", REPOSITORY, "--yes")
 
 

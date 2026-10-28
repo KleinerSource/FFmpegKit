@@ -54,6 +54,12 @@ class RollingReleaseTests(unittest.TestCase):
                 publisher.publish(self.root)
         self.assertEqual(gh.call_count, 2)
 
+    def test_independent_libmpv_releases_are_preserved(self):
+        with patch.object(publisher, "gh", side_effect=["libmpv-v0.41.0-r1\nios-native-old\n", "", ""]) as gh:
+            publisher.publish(self.root)
+        deletions = [call.args[2] for call in gh.call_args_list if call.args[:2] == ("release", "delete")]
+        self.assertEqual(deletions, ["ios-native-old"])
+
     def test_failed_creation_does_not_remove_any_release(self):
         error = subprocess.CalledProcessError(1, ["gh", "release", "create"])
         with patch.object(publisher, "gh", side_effect=["ios-native-old\n", error]) as gh:
